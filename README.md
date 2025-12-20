@@ -22,7 +22,8 @@ Basis Plugin/Utility für Projekt LivePage. Verwaltetet Executor Dimmer mit Hilf
 * `FadeTime()`: Übernimmt den Aktuellen Wert des `FadeTimeFader`.
 * `EvalDimmer()`: Limitiert alle Executor Dimmerwerte auf ein Minumum bzw. Maximum von 0 bzw. 100.
 * `LabelMacro(T_Exec)`: Ändert das Label des DimmerRoot Macros auf von `Target_Exec` den `Target_Exec.Name` und Aktuellen Dimmerwert.
-*`SetPopUp(T_Exec)`: Öffnet ein PopUp für die Eingabe von einem Spezifischen Dimmer Wert für `Target_Exec`.
+* `SetPopUp(T_Exec)`: Öffnet ein PopUp für die Eingabe von einem Spezifischen Dimmer Wert für `Target_Exec`.
+* `CheckFading(T_Exec)`: Ändert die Farbe wenn der Fade Abgeschlossen ist wider auf Grün mit Hilfe des Timer Schedulers
 
 ## GmaDummy Class
 

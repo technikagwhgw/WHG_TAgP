@@ -4,6 +4,7 @@
 -- Global Variables --
 FadeTimeFaderName = "fader_1.106"   -- Fade Time Fader
 FadeTimeDefault = 3     -- Standard Fade Zeit
+UpdateRate = 0.1        -- Update in Sekunden
 
 -- Executor Table --
 EGroup = {
@@ -27,6 +28,16 @@ EGroup = {
     }
 }
 
+-- Colors --
+Color = {
+    red    = "#FF0000",
+    green  = "#00FF00",
+    blue   = "#0000FF",
+    MAgold = "#FFCC00",
+    grey   = "#222222",
+    cyan   = "#00FFFF",
+} 
+
 -- Lädt gmaDummy, falls nicht in grandMA2 Umgebung
 if not gma then require("gmaDummy") end
 
@@ -35,7 +46,11 @@ if not gma then require("gmaDummy") end
 function ApplyValueChange(T_Exec, T_Dimmer)
     EGroup[T_Exec].Dimmer = T_Dimmer
     EvalDimmer()
+    
     gma.cmd("Executor " .. EGroup[T_Exec].Exec .. " At " .. EGroup[T_Exec].Dimmer .. " Fade " .. FadeTime())
+    gma.cmd("Appearance Macro " .. EGroup[T_Exec].Macro .. " Color " .. Color.red)
+    gma.timer(CheckFading(T_Exec), FadeTime(), 1)
+    
     LabelMacro(T_Exec)
 end
 
@@ -61,7 +76,6 @@ function EvalDimmer()
     end
 end
 
-
 -- Macro Functions --
 
 function LabelMacro(T_Exec)
@@ -74,4 +88,16 @@ end
 function SetPopUp(T_Exec)
     UserInput = gma.textinput("Dimmer Wert für " .. EGroup[T_Exec].Name .. " eingeben", EGroup[T_Exec].Dimmer)
     ApplyValueChange(T_Exec, UserInput)
+end
+
+function CheckFading(T_Exec)
+    local handle = gma.show.getobj.handle(EGroup[T_Exec].Exec)
+    local isFading = gma.show.property.get(handle, 'isFading')
+
+    if isFading == "No" or isFading == nil then
+        gma.cmd("Appearance Macro " .. EGroup[T_Exec].Macro .. " Color " .. Color.green)
+    else
+        -- Prüfen in UpdateRate Sekunden erneut
+        gma.timer(CheckFading(T_Exec), UpdateRate, 1)
+    end
 end
