@@ -72,6 +72,6 @@ function LabelMacro(T_Exec)
 end
 
 function SetPopUp(T_Exec)
-    UserInput = gma.textinput("Dimmer Wert eingeben", EGroup[T_Exec].Dimmer)
+    UserInput = gma.textinput("Dimmer Wert für " .. EGroup[T_Exec].Name .. " eingeben", EGroup[T_Exec].Dimmer)
     ApplyValueChange(T_Exec, UserInput)
 end
