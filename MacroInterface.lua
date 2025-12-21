@@ -73,3 +73,67 @@ function SelectPage(PageName)
     end
     gma.feedback("Layout auf " .. PageName .. " umgeschaltet.")
 end
+
+-- Utility Functions --
+
+local startTime = {}
+local lastClickTime = {}
+
+local long_press_threshold = 0.5   -- Sekunden (Konfig)
+local double_click_threshold = 0.3 -- Sekunden (Konfig)
+
+
+function SmartPress(state, id)
+    local now = gma.gettime()
+
+    if state == "START" then
+        startTime[id] = now
+        gma.echo("LongPress: START für ID " .. id)
+    elseif state == "STOP" then
+        local startTime = startTime[id] or 0
+        local duration = now - startTime
+
+        -- LongPress
+        if duration >= long_press_threshold then
+            gma.echo("LongPress: LONG PRESS erkannt für ID " .. id)
+            LongPressAction(id)
+        else
+            -- DoublePress
+            local lastClick = lastClickTime[id] or 0
+            if (now - lastClick) <= double_click_threshold then
+                gma.echo("LongPress: DOUBLE PRESS erkannt für ID " .. id)
+                DoublePressAction(id)
+                lastClickTime[id] = 0 -- Reset
+            else
+                -- SinglePress
+                lastClickTime[id] = now
+                gma.timer(function() 
+                    -- Nur ausführen, wenn in der Zwischenzeit kein Double-Tap war
+                    if lastClickTime[id] == now then
+                        ShortPressAction(id)
+                    end
+                end, double_click_threshold, 1)
+            end
+            
+            gma.echo("LongPress: KURZER PRESS erkannt für ID " .. id)
+            ShortPressAction(id)
+        end
+
+        startTime[id] = nil
+    end
+
+end -- Sorry (Aeneas)
+
+
+-- Aktionen --
+function ShortPressAction(id)
+    gma.cmd("")
+end
+
+function LongPressAction(id)
+    gma.cmd("")
+end
+
+function DoublePressAction(id)
+    gma.cmd("")
+end

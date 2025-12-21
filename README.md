@@ -40,6 +40,33 @@ Basis Plugin/Utility für Projekt LivePage. Verwaltetet Executor Dimmer mit Hilf
 - `CheckFading(T_Exec)`: Ändert die Farbe wenn der Fade Abgeschlossen ist wider auf Grün mit Hilfe des Timer Schedulers.
 - `ExecTest()`: Testet ob die Objekte in EGroup in GMA vorhanden sind.
 
+### Macro Interface
+
+#### MI Zusammenfassung
+
+Basis Plugin/Utility für Projekt LivePage. Verwaltetet die Macros der LivePage mit Hilfe der Macro Config.
+
+#### MI Funktionen
+
+- `ConvertMacroAddr(Macro_Addr)`: Wandelt eine `MacroAddresse` im Format X:Y und ein `MacroRoot` in eine Macro ID um.
+- `SelectPage(PageName)`: Wendet die Config einer Page auf die LivePage.
+
+#### MI Config
+
+Beispiel Konfiguration:
+
+ `MacroConfig["Spot"] = {`  
+ `color = Color.cyan,`  
+ `actions = {[1] = {`  
+ `name = "Gobo Wheel",`  
+ `cmd = "Attribute 'Gobo1' At +10",`  
+ `pos = "2:7"}`  
+ `} }`
+
+#### MI Utilty
+
+- `SmartPress(state, id)`: Triggert ein Funktion Basiernd auf der Input Art (Single-,Double-,LongPress) gibt ein Id des Button jene Funktionen weiter.
+
 ## GmaDummy Class
 
 ### GD Zusammenfassung
@@ -61,26 +88,3 @@ Eine Simmulierung der Echten gma Classe um Entwicklung zubeschleundigen und loca
 - show.getobj.handle(name) -> Wandlet Objekt Namen in GMA Handle um (*.handle("Exsample_Exec") -> 14203456).
 - show.getobj.label(handle) -> Returned den String des Labels eines Handles.
 - show.property.get(handle,prop) -> Returned den Zustand oder Wert einer Eigenschaft eines Handles.
-
-## Macro Interface
-
-### MI Zusammenfassung
-
-Basis Plugin/Utility für Projekt LivePage. Verwaltetet die Macros der LivePage mit Hilfe der Macro Config.
-
-### MI Funktionen
-
-- `ConvertMacroAddr(Macro_Addr)`: Wandelt eine `MacroAddresse` im Format X:Y und ein `MacroRoot` in eine Macro ID um.
-- `SelectPage(PageName)`: Wendet die Config einer Page auf die LivePage.
-
-### MI Config
-
-Beispiel Konfiguration:
-
- `MacroConfig["Spot"] = {`  
- `color = Color.cyan,`  
- `actions = {[1] = {`  
- `name = "Gobo Wheel",`  
- `cmd = "Attribute 'Gobo1' At +10",`  
- `pos = "2:7"}`  
- `} }`
