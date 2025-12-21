@@ -126,6 +126,8 @@ end -- Sorry (Aeneas)
 
 
 -- Aktionen --
+-- TODO: Preset Für Action nutzen ?
+
 function ShortPressAction(id)
     gma.cmd("")
 end
@@ -136,4 +138,60 @@ end
 
 function DoublePressAction(id)
     gma.cmd("")
+end
+
+-- Radio Select --
+local radioGroups = {
+    ["Group"] = {start=106, stop=120, activeColor=Color.green, inactiveColor=Color.grey}, --PlaceholderValues
+    ["Color"] = {start=121, stop=130, activeColor=Color.green, inactiveColor=Color.grey},
+    ["Gobo"] = {start=131, stop=140, activeColor=Color.green, inactiveColor=Color.grey},
+    ["Effect"] = {start=141, stop=150, activeColor=Color.green, inactiveColor=Color.grey},
+}
+
+function RadioSelect(Select_Group,ActivId)
+    local cfg = radioGroups[Select_Group]
+    if not cfg then return end
+
+    for i = cfg.start, cfg.stop do
+        gma.cmd("Appearance Macro " .. i .. " /color=" .. cfg.inactiveColor)
+    end
+
+    gma.cmd("Appearance Macro " .. ActivId .. " /color=" .. cfg.activeColor)
+
+    gma.cmd("Preset 1." .. (ActivId - cfg.start + 1))
+end
+
+-- Cycle Select --
+local cycleConfigs = {
+    [1] = { -- ID 1: PlaceholderValues
+        { name = "Pos 1", cmd = "Go Effect 1", color = Color.cyan }, -- Cyan
+        { name = "Pos 2", cmd = "Go Effect 2", color = Color.blue }, -- Blau
+        { name = "Pos 3", cmd = "Go Effect 3", color = Color.magenta }, -- Magenta
+        { name = "STOP Cycle", cmd = "Off Effect 1 thru 3", color = Color.grey } -- Aus
+    },
+    [2] = { -- ID 2: PlaceholderValues
+        { name = "Slow", cmd = "Attribute 'Shutter' At 10", color = Color.red},
+        { name = "Fast", cmd = "Attribute 'Shutter' At 80", color = Color.green},
+        { name = "Off", cmd = "Attribute 'Shutter' At 100", color = Color.grey}, -- Aus
+    }
+}
+
+-- Interner Zähler --
+local currentStep = {}
+
+function CycleEffect(id)
+    local config = cycleConfigs[id]
+    if not config then return end
+
+    local step = (currentStep[id] or 0) + 1
+    if step > #config then step = 1 end
+    currentStep[id] = step
+
+    local action = config[step]
+
+    gma.cmd(action.cmd)
+
+    local macroID = macroRoot + id - 1
+    gma.cmd('Label Macro ' .. macroID .. ' "' .. action.name .. '"')
+    gma.cmd('Appearance Macro ' .. macroID .. ' /color="' .. action.color .. '"')
 end

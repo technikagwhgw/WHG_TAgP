@@ -66,6 +66,8 @@ Beispiel Konfiguration:
 #### MI Utilty
 
 - `SmartPress(state, id)`: Triggert ein Funktion Basiernd auf der Input Art (Single-,Double-,LongPress) gibt ein Id des Button jene Funktionen weiter.
+- `RadioSelect(Select_Group,ActivId)`: Single Select Effect für einfache Identifizierung von Current Select.
+- `CycleEffect(id)`: Cycles durch Liste von Commands und passt die Farbe und Label des Macros an.
 
 ## GmaDummy Class
 
