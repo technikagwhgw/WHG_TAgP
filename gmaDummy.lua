@@ -77,9 +77,9 @@ gma = {
             end
         },
         property = {
-            get = function(handle, propname)
-                print("GMA_PROPERTY_GET: Getting property '" .. propname .. "' for handle " .. tostring(handle))
-                if propname == "isFading" then
+            get = function(handle, prop_name)
+                print("GMA_PROPERTY_GET: Getting property '" .. prop_name .. "' for handle " .. tostring(handle))
+                if prop_name == "isFading" then
                     return "No"
                 end
                 return nil
@@ -88,5 +88,5 @@ gma = {
     }
 }
 
-debug = true
+Debug = true
 print("--- GMA DUMMY CLASS LOADED ---")

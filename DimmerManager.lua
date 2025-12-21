@@ -36,9 +36,10 @@ Color = {
     MAgold = "#FFCC00",
     grey   = "#222222",
     cyan   = "#00FFFF",
-} 
+}
 
 -- Lädt gmaDummy, falls nicht in grandMA2 Umgebung
+Debug = false  -- Remove in Prod
 if not gma then require("gmaDummy") end  -- Remove in Prod
 
 
@@ -113,18 +114,18 @@ end
 -- Initialisierung Test --
 
 function ExecTest()
-    local TestPassed = true
+    local testPassed = true
     for key, data in pairs(EGroup) do
         ExecState = gma.show.getobj.handle("Executor " .. data.Exec)
         if not ExecState then
             gma.gui.msgbox("Fehler", "Executor " .. data.Exec .. " für " .. data.Name .. " nicht gefunden!")
-            TestPassed = false
+            testPassed = false
         end
     end
-    if not gma.show.getobj.handle("Executor " .. FadeTimeFaderName) then TestPassed = false end
-    
+    if not gma.show.getobj.handle("Executor " .. FadeTimeFaderName) then testPassed = false end
+
     -- Ausgabe des Testergebnisses --
-    if not TestPassed then
+    if not testPassed then
         gma.echo(" --- DIMMER MANAGER: DATA HANDLE NOT FOUND! --- ")
     else
         gma.echo(" --- DIMMER MANAGER: INITIALISIERUNG ERFOLGREICH --- ")
@@ -135,7 +136,7 @@ end
 ExecTest()
 
 -- Funktionen Test --
-if debug then -- Remove in Prod
+if Debug then -- Remove in Prod
     print("\n------------------------------------\n")
     print("ApplyValueChange Exec1 auf 0\n")
     ApplyValueChange("Exec1", 0)
