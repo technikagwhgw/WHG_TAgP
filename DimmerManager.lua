@@ -6,6 +6,7 @@ FadeTimeFaderName = "100.106"   -- Fade Time Fader
 FadeTimeDefault = 3     -- Standard Fade Zeit
 UpdateRate = 0.1        -- Update in Sekunden
 local isTrackingFade = {} --Debug Variable um Fading zu tracken
+Debug = true
 
 -- Executor Group --
 EGroup = {
@@ -40,7 +41,6 @@ Color = {
 }
 
 -- Lädt gmaDummy, falls nicht in grandMA2 Umgebung
-Debug = false  -- Remove in Prod
 if not gma then require("gmaDummy") end  -- Remove in Prod
 
 

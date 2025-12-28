@@ -5,24 +5,81 @@
 local macroRoot = 106 -- 1:0
 local macroMax = 164  -- 3:14
 local macroPageSize = 15
+
 CurrentActiveConfig = nil
 local enableHelp = true
+Debug = true
 
 -- Macro Config --
 -- Paste MacroConfig here ...
 
 
 
--- Macro Config check
-if not MacroConfig then gma.echo("MacroConfig nicht gefunden!") end
+
+
+-- Colors --
+Color = {
+    red    = "#FF0000",
+    green  = "#00FF00",
+    blue   = "#0000FF",
+    MAgold = "#FFCC00",
+    grey   = "#222222",
+    cyan   = "#00FFFF",
+}
 
 -- Lädt gmaDummy, falls nicht in grandMA2 Umgebung
-Debug = false                            -- Remove in Prod
 if not gma then require("gmaDummy") end  -- Remove in Prod
 
 -------------------------------------------
 --               Functions               --
 -------------------------------------------
+
+function ValidateConfig()
+    gma.echo("--- Starte Config Check ---")
+    local errorCount = 0
+
+    if not MacroConfig then 
+        gma.gui.msgbox("ERROR", "MacroConfig Tabelle existiert nicht!")
+        return false 
+    end
+
+    for pageName, pageData in pairs(MacroConfig) do
+        -- Check 1: Actions
+        if not pageData.actions then
+            gma.echo("FEHLER: Seite '" .. pageName .. "' hat keine 'actions' Tabelle!")
+            errorCount = errorCount + 1
+        else
+            for idx, action in pairs(pageData.actions) do
+                -- Check 2: Content-Typ 
+                if type(action.content) ~= "string" and type(action.content) ~= "table" then
+                    gma.echo("SYNTAX FEHLER: Action [" .. idx .. "] in '" .. pageName .. "' hat ungültigen Content!")
+                    errorCount = errorCount + 1
+                end
+                -- Check 3: Komma-Fehler (Leere Einträge)
+                if not action then
+                    gma.echo("WARNUNG: Lücke in der Tabelle bei ID " .. idx .. " auf Seite '" .. pageName .. "' gefunden!")
+                end
+            end
+        end
+    end
+
+    if errorCount > 0 then
+        gma.gui.msgbox("Config Fehler", "Es wurden " .. errorCount .. " Fehler gefunden! Siehe Command Line für Informationen.")
+        return false
+    end
+    
+    gma.echo("--- Config Check erfolgreich ---")
+    return true
+end
+
+local status, err = pcall(function() 
+    ValidateConfig()
+end)
+
+if not status then
+    gma.gui.msgbox("Fatal Syntax Error", "Deine Config hat einen schweren Fehler: " .. err)
+end
+
 
 
 -- Fun Functions --
