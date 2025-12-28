@@ -2,11 +2,11 @@
 -- Manages LivePage Dimmer
 
 -- Global Variables --
-FadeTimeFaderName = "100.106"   -- Fade Time Fader
-FadeTimeDefault = 3     -- Standard Fade Zeit
-UpdateRate = 0.1        -- Update in Sekunden
-local isTrackingFade = {} --Debug Variable um Fading zu tracken
-Debug = true
+local fadeTimeFaderName = "100.106"   -- Fade Time Executor
+local fadeTimeDefault = 3     -- Standard Fade Zeit
+UpdateRate = 0.1        -- Sekunden -- mögliche Verschiebung in LivePageMain.lua
+IsTrackingFade = {}     -- Info Variable um Fading zu tracken
+local debug = _G.LivePage.Debug.Enabled
 
 -- Executor Group --
 EGroup = {
@@ -57,7 +57,7 @@ function ApplyValueChange(T_Exec, T_Dimmer)
     gma.cmd("Executor " .. EGroup[T_Exec].Exec .. " At " .. EGroup[T_Exec].Dimmer .. " Fade " .. FadeTime())
     gma.cmd("Appearance Macro " .. EGroup[T_Exec].Macro .. " Color " .. Color.red)
     
-    isTrackingFade[T_Exec] = true
+    IsTrackingFade[T_Exec] = true
     gma.timer(function() CheckFading(T_Exec) end, FadeTime(), 1)
 
     LabelMacro(T_Exec)
@@ -71,7 +71,7 @@ function CheckFading(T_Exec)
 
     if isFading == "No" or isFading == nil then
         gma.cmd("Appearance Macro " .. EGroup[T_Exec].Macro .. " /color='" .. Color.green .. "'")
-        isTrackingFade[T_Exec] = nil -- Tracking beenden
+        IsTrackingFade[T_Exec] = nil -- Tracking beenden
     else
         
         gma.timer(function() CheckFading(T_Exec) end, UpdateRate, 1)
@@ -79,7 +79,7 @@ function CheckFading(T_Exec)
 end
 
 function FadeTime()
-    return tonumber(gma.show.getvar("fader_" .. FadeTimeFaderName)) or FadeTimeDefault
+    return tonumber(gma.show.getvar("fader_" .. fadeTimeFaderName)) or fadeTimeDefault
 end
 
 function EvalDimmer()
@@ -125,13 +125,14 @@ function ExecTest()
             testPassed = false
         end
     end
-    if not gma.show.getobj.handle("Executor " .. FadeTimeFaderName) then testPassed = false end
+    if not gma.show.getobj.handle("Executor " .. fadeTimeFaderName) then testPassed = false end
 
     -- Ausgabe des Testergebnisses --
     if not testPassed then
         gma.echo(" --- DIMMER MANAGER: DATA HANDLE NOT FOUND! --- ")
     else
         gma.echo(" --- DIMMER MANAGER: INITIALISIERUNG ERFOLGREICH --- ")
+        return nil
     end
 end
 
@@ -139,7 +140,7 @@ end
 ExecTest()
 
 -- Funktionen Test --
-if Debug then -- Remove in Prod
+if debug then -- Remove in Prod
     print("\n------------------------------------\n")
     print("ApplyValueChange Exec1 auf 0\n")
     ApplyValueChange("Exec1", 0)

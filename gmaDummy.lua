@@ -87,6 +87,4 @@ gma = {
         }
     }
 }
-
-Debug = true
 print("--- GMA DUMMY CLASS LOADED ---")

@@ -2,17 +2,19 @@
 -- Verwaltet die Macros für die LivePage
 
 -- Variables --
+-- TODO: Macro Settings in _G legen 
 local macroRoot = 106 -- 1:0
 local macroMax = 164  -- 3:14
 local macroPageSize = 15
+local displayMacroID = 106 -- Status Anzeige Macro ID (placeholder)
 
 CurrentActiveConfig = nil
 local enableHelp = true
-Debug = true
+local debug = _G.LivePage.Debug.Enabled
 
 -- Macro Config --
 -- Paste MacroConfig here ...
-
+--   ... ... ... ... ...
 
 
 
@@ -135,11 +137,11 @@ function SelectPage(PageName)
         gma.echo("SelectPage: Seite '" .. PageName .. "' nicht in MacroConfig gefunden!")
         return nil
     end
-    
+
     for i = 1, macroMax - macroRoot do
         local macroID = macroRoot + i - 1
         local action = config.actions[i]
-    
+
         -- Pos Override
         if action.pos then
             local convertedID = ConvertMacroAddr(action.pos)
@@ -171,7 +173,7 @@ function ApplyMacroConfig(action, macroID)
     end
 
     for lineIndex, lineData in ipairs(action.content) do
-        local lineIndex = lineIndex + indexOffset
+        lineIndex = lineIndex + indexOffset
         local cmdText = ""
         local waitTime = "0" -- Default = 0
         
@@ -207,7 +209,7 @@ function CheckHelp(id)
     if isHelpModeActive then
         -- HILFE-MODUS:
         ShowHelp(id)
-        gma.cmd("Off Macro @") --Könnte zu Langsam sein eventuell go nutzen
+        gma.cmd("Off Macro @") --Könnte zu Langsam sein eventuell wait = GO nutzen
     end
 end
 
@@ -260,7 +262,6 @@ function SmartPress(state, id)
                 -- ShortPress
                 lastClickTime[id] = now
                 gma.timer(function() 
-                    -- Nur ausführen, wenn in der Zwischenzeit kein Double-Tap war
                     if lastClickTime[id] == now then
                         ShortPressAction(id)
                         gma.echo("SmartPress: KURZER PRESS erkannt für ID " .. id)
@@ -327,7 +328,7 @@ local cycleConfigs = {
     }
 }
 
--- Interner Zähler --
+-- Cycle Effect --
 local currentStep = {}
 
 function CycleEffect(id)
@@ -346,3 +347,30 @@ function CycleEffect(id)
     gma.cmd('Label Macro ' .. macroID .. ' "' .. action.name .. '"')
     gma.cmd('Appearance Macro ' .. macroID .. ' /color="' .. action.color .. '"')
 end
+
+-- Status Display --
+-- muss gegebenfalls in ein Update Loop Plugin verlegt werden
+function UpdateStatusDisplay()
+    local helpText = isHelpModeActive and "HELP:ON" or "HELP:OFF"
+    local pageText = CurrentActiveConfig or "None"
+
+    -- Fader Count
+    local fadeCount = 0
+    for _ in pairs(IsTrackingFade or {}) do fadeCount = fadeCount + 1 end
+    local fadeText = "FADES:" .. fadeCount
+
+    -- Data String
+    local statusString = string.format("%s | PG:%s | %s", helpText, pageText, fadeText)
+
+    gma.cmd('Label Macro ' .. displayMacroID .. ' "' .. statusString .. '"')
+    local color = isHelpModeActive and Color.red or Color.grey
+    gma.cmd('Appearance Macro ' .. displayMacroID .. ' /color="' .. color .. '"')
+
+    -- Reschedule
+    if displayMacroID then
+        gma.timer(UpdateStatusDisplay, 1, 1)
+
+    end
+end
+-- Init
+if displayMacroID then UpdateStatusDisplay() end
