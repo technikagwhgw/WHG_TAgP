@@ -4,6 +4,7 @@
 -- Variables --
 local macroRoot = 106 -- 1:0
 local macroMax = 164  -- 3:14
+local macroPageSize = 15
 CurrentActiveConfig = nil
 local enableHelp = true
 
@@ -67,7 +68,7 @@ function ConvertMacroAddr(Macro_Addr)
         return nil
     end
 
-    local macroNumber = (base - 1) + (yValue) * 15 + xValue
+    local macroNumber = (base - 1) + (yValue * macroPageSize + xValue)
     return macroNumber  -- id
 end
 
@@ -149,7 +150,7 @@ function CheckHelp(id)
     if isHelpModeActive then
         -- HILFE-MODUS:
         ShowHelp(id)
-        gma.cmd("Off Macro @")
+        gma.cmd("Off Macro @") --Könnte zu Langsam sein eventuell go nutzen
     end
 end
 
@@ -205,12 +206,10 @@ function SmartPress(state, id)
                     -- Nur ausführen, wenn in der Zwischenzeit kein Double-Tap war
                     if lastClickTime[id] == now then
                         ShortPressAction(id)
+                        gma.echo("SmartPress: KURZER PRESS erkannt für ID " .. id)
                     end
                 end, double_click_threshold, 1)
             end
-            
-            gma.echo("LongPress: KURZER PRESS erkannt für ID " .. id)
-            ShortPressAction(id)
         end
 
         startTime[id] = nil
@@ -247,11 +246,12 @@ function RadioSelect(Select_Group,ActivId)
     if not cfg then return end
 
     for i = cfg.start, cfg.stop do
-        gma.cmd("Appearance Macro " .. i .. " /color=" .. cfg.inactiveColor)
+        gma.cmd("Appearance Macro " .. i .. " /color='" .. cfg.inactiveColor .. "'")
     end
 
-    gma.cmd("Appearance Macro " .. ActivId .. " /color=" .. cfg.activeColor)
+    gma.cmd("Appearance Macro " .. ActivId .. " /color='" .. cfg.activeColor .. "'")
 
+    -- Nicht Fest idee hier
     gma.cmd("Preset 1." .. (ActivId - cfg.start + 1))
 end
 

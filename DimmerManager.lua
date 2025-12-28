@@ -5,6 +5,7 @@
 FadeTimeFaderName = "100.106"   -- Fade Time Fader
 FadeTimeDefault = 3     -- Standard Fade Zeit
 UpdateRate = 0.1        -- Update in Sekunden
+local isTrackingFade = {} --Debug Variable um Fading zu tracken
 
 -- Executor Group --
 EGroup = {
@@ -55,15 +56,26 @@ function ApplyValueChange(T_Exec, T_Dimmer)
 
     gma.cmd("Executor " .. EGroup[T_Exec].Exec .. " At " .. EGroup[T_Exec].Dimmer .. " Fade " .. FadeTime())
     gma.cmd("Appearance Macro " .. EGroup[T_Exec].Macro .. " Color " .. Color.red)
-    T2T_Exec = T_Exec
-    gma.timer(CheckFading, FadeTime(), 1)
+    
+    isTrackingFade[T_Exec] = true
+    gma.timer(function() CheckFading(T_Exec) end, FadeTime(), 1)
 
     LabelMacro(T_Exec)
 end
 
-function ChangeExecDimmer(T_Exec, C_Dimmer)
-    T_Dimmer = EGroup[T_Exec].Dimmer + C_Dimmer
-    ApplyValueChange(T_Exec, T_Dimmer)
+function CheckFading(T_Exec)
+    if not T_Exec or not EGroup[T_Exec] then gma.echo("CheckFading: Ungültiger Executor!") return end
+    
+    local handle = gma.show.getobj.handle("Executor " .. EGroup[T_Exec].Exec)
+    local isFading = gma.show.property.get(handle, 'isFading')
+
+    if isFading == "No" or isFading == nil then
+        gma.cmd("Appearance Macro " .. EGroup[T_Exec].Macro .. " /color='" .. Color.green .. "'")
+        isTrackingFade[T_Exec] = nil -- Tracking beenden
+    else
+        
+        gma.timer(function() CheckFading(T_Exec) end, UpdateRate, 1)
+    end
 end
 
 function FadeTime()
@@ -83,6 +95,11 @@ function EvalDimmer()
     end
 end
 
+function ChangeExecDimmer(T_Exec, C_Dimmer)
+    T_Dimmer = EGroup[T_Exec].Dimmer + C_Dimmer
+    ApplyValueChange(T_Exec, T_Dimmer)
+end
+
 -- Macro Functions --
 
 function LabelMacro(T_Exec)
@@ -95,20 +112,6 @@ end
 function SetPopUp(T_Exec)
     UserInput = gma.textinput("Dimmer Wert für " .. EGroup[T_Exec].Name .. " eingeben", EGroup[T_Exec].Dimmer)
     ApplyValueChange(T_Exec, UserInput)
-end
-
-function CheckFading(T_Exec)
-    if not T_Exec then T_Exec = T2T_Exec end
-    local handle = gma.show.getobj.handle("Executor " .. EGroup[T2T_Exec].Exec)
-    local isFading = gma.show.property.get(handle, 'isFading')
-
-    if isFading == "No" or isFading == nil then
-        gma.cmd("Appearance Macro " .. EGroup[T_Exec].Macro .. " Color " .. Color.green)
-    else
-        -- Prüfen in UpdateRate Sekunden erneut
-        T2T_Exec = T_Exec
-        gma.timer(CheckFading, UpdateRate, 1)
-    end
 end
 
 -- Initialisierung Test --
