@@ -4,9 +4,13 @@
 -- Variables --
 local macroRoot = 106 -- 1:0
 local macroMax = 164  -- 3:14
+CurrentActiveConfig = nil
+local enableHelp = true
 
 -- Macro Config --
--- Paste MacroConfig here
+-- Paste MacroConfig here ...
+
+
 
 -- Macro Config check
 if not MacroConfig then gma.echo("MacroConfig nicht gefunden!") end
@@ -19,6 +23,34 @@ if not gma then require("gmaDummy") end  -- Remove in Prod
 --               Functions               --
 -------------------------------------------
 
+
+-- Fun Functions --
+local function weightedRandom(items)
+    local sum = 0
+    for _, item in ipairs(items) do
+        sum = sum + item.weight
+    end
+
+    local rand = math.random() * sum
+    local current = 0
+
+    for _, item in ipairs(items) do
+        current = current + item.weight
+        if rand <= current then
+            return item.value
+        end
+    end
+end
+-- Langweilige Funktion geh weiter
+local exceptionMsg = {{weight=1, value="Ohh No"},{weight=10, value="Erwarteter Fehler"},{weight=5, value="Warum? Darum ->"},{weight=4, value="Fehler Freie Operation zur Zeit nicht erreichbar"},{weight=10, value="Sorry .."},{weight=1, value="Fehler 666: Teufel im System"},{weight=5, value="Nein"},{weight=10, value="Fehler: Fehler"},{weight=1, value="Fehlerhafte Fehlermeldung (jk): Fehler"},{weight=20, value="Fehler"},{weight=20, value="Error"},{weight=7, value="Hahaha"},{weight=5, value="Ups"},{weight=5, value="Idk"},{weight=6, value="Fehler: Hilfe benötigt"},{weight=2, value="DU BIST SCHULD"},{weight=5, value="Was"},{weight=10, value="Unerwartet"},{weight=3, value="Fakt: Aeneas Plugin Produziert keine Fehler"},{weight=8, value="Ahhhhhhhhhhhh"},{weight=2, value="GUTEN TAG"},{weight=1, value="Schlechter Tag"},{weight=5, value="Ich entschuldige mich für den Fehler"},{weight=5, value="Unvermeidbar"},{weight=1, value="Ich kann dich nicht hören"},{weight=15, value="Du solltest das nicht sehen"},{weight=2, value="404: Fehler nicht gefunden"},{weight=2, value="Fehler: 404 nicht gefunden"},{weight=1, value="Nicht gefunden: 404 Fehler"},{weight=1, value="Niemand mag Fehler"},{weight=2, value="Ich glaube an dich"},
+}
+local function getExceptionMsg()
+    return weightedRandom(exceptionMsg)
+end
+
+
+-- TODO: M420 format für Addressen unterstützen (M gefolgt von Addresse 1d Array)
+-- TODO: Generelle Definition für ID einführen aktuell sehr wage definiert
 function ConvertMacroAddr(Macro_Addr)
     -- Beispiel Page0 "1:0" -> "106"
     local base = tonumber(macroRoot)
@@ -34,9 +66,9 @@ function ConvertMacroAddr(Macro_Addr)
         gma.echo("ConvertMacroAddr: Ungültige Macro Adresse '" .. Macro_Addr .. "' Kein Addresse kleiner RootMacro!")
         return nil
     end
- 
+
     local macroNumber = (base - 1) + (yValue) * 15 + xValue
-    return macroNumber
+    return macroNumber  -- id
 end
 
 function SelectPage(PageName)
@@ -57,8 +89,8 @@ function SelectPage(PageName)
                 macroID = convertedID
             end
         end
-        
-        if action.cmd then
+
+        if action.content then
             ApplyMacroConfig(action, macroID)
         else
             if not config.suppressEmpty then
@@ -67,23 +99,76 @@ function SelectPage(PageName)
         end
     end
     gma.feedback("Layout auf " .. PageName .. " umgeschaltet.")
+    CurrentActiveConfig = config
 end
 
 function ApplyMacroConfig(action, macroID)
+    local indexOffset = 0
     gma.cmd("Delete Macro 1." .. macroID .. ".*")
     
-    if action == "table" then
-        for lineIndex, commandText in ipairs(action.cmd) do
-            gma.cmd('Store Macro 1.' .. macroID .. '.' .. lineIndex)
-            gma.cmd('Set Macro 1.' .. macroID .. '.' .. lineIndex .. ' Command "' .. commandText .. '"')
-        end
-    else
+    if action.help and enableHelp then
         gma.cmd('Store Macro 1.' .. macroID .. '.1')
-        gma.cmd('Set Macro 1.' .. macroID .. '.1 Command "' .. action.cmd .. '"')
+        gma.cmd('Set Macro 1.' .. macroID .. '.1 Command "CheckHelp(' .. macroID .. ')"')
+        indexOffset = 1
+    end
+
+    for lineIndex, lineData in ipairs(action.content) do
+        local lineIndex = lineIndex + indexOffset
+        local cmdText = ""
+        local waitTime = "0" -- Default = 0
+        
+        if type(lineData) == "table" then
+            cmdText = lineData.cmd or ""
+            waitTime = lineData.wait or "0"
+        else
+            cmdText = lineData
+        end
+        gma.cmd('Store Macro 1.' .. macroID .. '.' .. lineIndex)
+        
+        gma.cmd('Set Macro 1.' .. macroID .. '.' .. lineIndex .. ' Command "' .. cmdText .. '"')
+        gma.cmd('Set Macro 1.' .. macroID .. '.' .. lineIndex .. ' Wait ' .. waitTime)
     end
 end
 
 -- Utility Functions --
+
+-- Help --
+
+local isHelpModeActive = false
+
+function ToggleHelpMode()
+    isHelpModeActive = not isHelpModeActive
+    if isHelpModeActive then
+        gma.echo("Help Mode aktiviert.")
+    else
+        gma.echo("Hilfe-Modus beendet.")
+    end
+end
+
+function CheckHelp(id)
+    if isHelpModeActive then
+        -- HILFE-MODUS:
+        ShowHelp(id)
+        gma.cmd("Off Macro @")
+    end
+end
+
+function ShowHelp(id)
+    if not CurrentActiveConfig then
+        gma.gui.msgbox(getExceptionMsg(), "Keine aktive Macro Seite ausgewählt.")
+        return
+    end
+
+    local action = CurrentActiveConfig.actions[id]
+    if action and action.help then
+        gma.gui.msgbox("Hilfe: " .. action.name, action.help)
+    else
+        gma.gui.msgbox(getExceptionMsg(), "Keine Hilfe für ID " .. id .. " hinterlegt.")
+    end
+end
+
+
+-- Smart Button --
 
 local startTime = {}
 local lastClickTime = {}
@@ -114,7 +199,7 @@ function SmartPress(state, id)
                 DoublePressAction(id)
                 lastClickTime[id] = 0 -- Reset
             else
-                -- SinglePress
+                -- ShortPress
                 lastClickTime[id] = now
                 gma.timer(function() 
                     -- Nur ausführen, wenn in der Zwischenzeit kein Double-Tap war

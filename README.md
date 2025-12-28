@@ -50,10 +50,12 @@ Basis Plugin/Utility für Projekt LivePage. Verwaltetet die Macros der LivePage 
 
 - `ConvertMacroAddr(Macro_Addr)`: Wandelt eine `MacroAddresse` im Format X:Y und ein `MacroRoot` in eine Macro ID um.
 - `SelectPage(PageName)`: Context Switcher für die `ApplyMacroConfig` Funktion.
-- `ApplyMacroConfig(action, macroId)`: Lädt ein Index einer Macro Config.
+- `ApplyMacroConfig(action, macroId)`: Lädt ein Index einer Macro Config. (Unterstützt MultiLineCmd und MultiLineWait inkl GO)
+- Help Funktionen: `ToggleHelp`,`CheckHelp(id)`,`ShowHelp(id)` optimiern die Einführung von Help Nachrichten in der MacroConfig
 
 #### MI Config
 
+Beispiel nicht aktuell siehe MacroConfig.lua für Aktueles Beispiel
 Beispiel Konfiguration:
 
  `MacroConfig["Spot"] = {`  

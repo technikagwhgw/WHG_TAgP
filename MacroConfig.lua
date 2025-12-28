@@ -16,22 +16,25 @@ MacroConfig = {
     ["Spot"] = {
         color = Color.cyan,
         actions = {
-            [1] = { 
+            [1] = {
                 name = "Gobo Wheel", 
-                cmd = "Attribute 'Gobo1' At +10",
-                pos = "2:7"},
-            [2] = { 
+                content = "Attribute 'Gobo1' At +10",
+                pos = "2:7",
+                help = "Generic.help help text hier" },
+            [2] = {
                 name = "Reset Focus",
-                cmd = "Attribute 'Focus' At 50" },
+                content = "Attribute 'Focus' At 50",
+                help = "Generic.help help text hier" },
             [3] = {
                 name = "Reset + Home",
-                cmd = {
-                    "Group 5 At 100",
-                    "Attribute 'Pan' At 0",
-                    "Attribute 'Tilt' At 0",
-                    "Effect 1 Off"
+                content = {
+                    {cmd = "Group 5 At 100",wait = "0.5"},
+                    {cmd = "Attribute 'Pan' At 0"},
+                    {cmd = "Attribute 'Tilt' At 0"},
+                    {cmd = "Effect 1 Off",wait = "Go"}
                 },
-                pos = "1:3"
+                pos = "1:3",
+                help = "Generic.help help text hier"
             }
         }
     },
