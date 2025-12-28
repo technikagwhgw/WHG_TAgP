@@ -6,7 +6,6 @@
 local macroRoot = 106 -- 1:0
 local macroMax = 164  -- 3:14
 local macroPageSize = 15
-local displayMacroID = 106 -- Status Anzeige Macro ID (placeholder)
 
 CurrentActiveConfig = nil
 local enableHelp = true
@@ -27,6 +26,8 @@ Color = {
     MAgold = "#FFCC00",
     grey   = "#222222",
     cyan   = "#00FFFF",
+    orange = "#FFA500",
+    yellow = "#FFFF00",
 }
 
 -- Lädt gmaDummy, falls nicht in grandMA2 Umgebung
@@ -347,30 +348,3 @@ function CycleEffect(id)
     gma.cmd('Label Macro ' .. macroID .. ' "' .. action.name .. '"')
     gma.cmd('Appearance Macro ' .. macroID .. ' /color="' .. action.color .. '"')
 end
-
--- Status Display --
--- muss gegebenfalls in ein Update Loop Plugin verlegt werden
-function UpdateStatusDisplay()
-    local helpText = isHelpModeActive and "HELP:ON" or "HELP:OFF"
-    local pageText = CurrentActiveConfig or "None"
-
-    -- Fader Count
-    local fadeCount = 0
-    for _ in pairs(IsTrackingFade or {}) do fadeCount = fadeCount + 1 end
-    local fadeText = "FADES:" .. fadeCount
-
-    -- Data String
-    local statusString = string.format("%s | PG:%s | %s", helpText, pageText, fadeText)
-
-    gma.cmd('Label Macro ' .. displayMacroID .. ' "' .. statusString .. '"')
-    local color = isHelpModeActive and Color.red or Color.grey
-    gma.cmd('Appearance Macro ' .. displayMacroID .. ' /color="' .. color .. '"')
-
-    -- Reschedule
-    if displayMacroID then
-        gma.timer(UpdateStatusDisplay, 1, 1)
-
-    end
-end
--- Init
-if displayMacroID then UpdateStatusDisplay() end
