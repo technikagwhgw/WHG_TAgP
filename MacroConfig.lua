@@ -16,8 +16,23 @@ MacroConfig = {
     ["Spot"] = {
         color = Color.cyan,
         actions = {
-            [1] = { name = "Gobo Wheel", cmd = "Attribute 'Gobo1' At +10" ,pos = "2:7"},
-            [2] = { name = "Reset Focus", cmd = "Attribute 'Focus' At 50" },
+            [1] = { 
+                name = "Gobo Wheel", 
+                cmd = "Attribute 'Gobo1' At +10",
+                pos = "2:7"},
+            [2] = { 
+                name = "Reset Focus",
+                cmd = "Attribute 'Focus' At 50" },
+            [3] = {
+                name = "Reset + Home",
+                cmd = {
+                    "Group 5 At 100",
+                    "Attribute 'Pan' At 0",
+                    "Attribute 'Tilt' At 0",
+                    "Effect 1 Off"
+                },
+                pos = "1:3"
+            }
         }
     },
     ["Wash"] = {
@@ -28,6 +43,3 @@ MacroConfig = {
         }
     }
 }
-
--- Anmerkung: Für Actionen die mehre als ein Cmd benötigen, wird ein Plugin zuverfügung gestellt, 
--- dass diese ermöglicht oder ein multi cmd Configuartion überträgt. -Aeneas

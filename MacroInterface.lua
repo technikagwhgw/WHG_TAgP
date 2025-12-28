@@ -45,11 +45,12 @@ function SelectPage(PageName)
         gma.echo("SelectPage: Seite '" .. PageName .. "' nicht in MacroConfig gefunden!")
         return nil
     end
-
+    
     for i = 1, macroMax - macroRoot do
         local macroID = macroRoot + i - 1
         local action = config.actions[i]
-
+    
+        -- Pos Override
         if action.pos then
             local convertedID = ConvertMacroAddr(action.pos)
             if convertedID then
@@ -57,21 +58,29 @@ function SelectPage(PageName)
             end
         end
         
-        if action then
-            gma.cmd('Set Macro 1.' .. macroID .. '.1 Command "' .. action.cmd .. '"')
-            gma.cmd('Label Macro ' .. macroID .. ' "' .. action.name .. '"')
-            gma.cmd('Appearance Macro ' .. macroID .. ' /color="' .. config.color .. '"')
+        if action.cmd then
+            ApplyMacroConfig(action, macroID)
         else
-        -- Macro leeren/ausgrauen, falls für diesen Typ kein Config definiert ist
-            gma.cmd('Set Macro 1.' .. macroID .. '.1 Command ""')
-            gma.cmd('Label Macro ' .. macroID .. ' "-"')
-            gma.cmd('Appearance Macro ' .. macroID .. ' /r=20 /g=20 /b=20')
             if not config.suppressEmpty then
-                gma.echo('SelectPage: Kein Action für Macro ' .. macroID .. ' in Seite "' .. PageName .. '" definiert.')
+                gma.echo('SelectPage: Kein Action für Macro ' .. macroID)
             end
         end
     end
     gma.feedback("Layout auf " .. PageName .. " umgeschaltet.")
+end
+
+function ApplyMacroConfig(action, macroID)
+    gma.cmd("Delete Macro 1." .. macroID .. ".*")
+    
+    if action == "table" then
+        for lineIndex, commandText in ipairs(action.cmd) do
+            gma.cmd('Store Macro 1.' .. macroID .. '.' .. lineIndex)
+            gma.cmd('Set Macro 1.' .. macroID .. '.' .. lineIndex .. ' Command "' .. commandText .. '"')
+        end
+    else
+        gma.cmd('Store Macro 1.' .. macroID .. '.1')
+        gma.cmd('Set Macro 1.' .. macroID .. '.1 Command "' .. action.cmd .. '"')
+    end
 end
 
 -- Utility Functions --

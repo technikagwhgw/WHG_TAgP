@@ -49,7 +49,8 @@ Basis Plugin/Utility für Projekt LivePage. Verwaltetet die Macros der LivePage 
 #### MI Funktionen
 
 - `ConvertMacroAddr(Macro_Addr)`: Wandelt eine `MacroAddresse` im Format X:Y und ein `MacroRoot` in eine Macro ID um.
-- `SelectPage(PageName)`: Wendet die Config einer Page auf die LivePage.
+- `SelectPage(PageName)`: Context Switcher für die `ApplyMacroConfig` Funktion.
+- `ApplyMacroConfig(action, macroId)`: Lädt ein Index einer Macro Config.
 
 #### MI Config
 
