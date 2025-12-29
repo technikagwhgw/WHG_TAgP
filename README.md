@@ -90,5 +90,27 @@ Der Dummy enthält eine experimentelle **Event-Loop**, um Timer-Verhalten zu sim
 - **Event-Loop**: Verarbeitet die `_tasks` Tabelle realitätsnah.
 - **Pcall-Protection**: Verhindert den Absturz des Test-Skripts bei Fehlern innerhalb eines Timers.
 
+## Dokumentations- & Hilfe-System
+
+Um die Bedienung für die Technik-AG zu erleichtern, verfügt das Framework über ein zweistufiges Hilfesystem. Es kombiniert technische Daten aus der Konfiguration mit verständlichen Erklärungen zu den internen Funktionen.
+
+### LpHelp Python-Tool
+
+Das Tool `LpHelp.py` ist ein externer Helfer, der parallel zur Show oder während der Programmierung am PC genutzt werden kann.
+
+- **Single Source of Truth**: Das Skript liest direkt die `MacroConfig.lua` und die `DOKU.txt` ein. Änderungen an der Konfiguration sind sofort in der Hilfe sichtbar.
+- **Intelligente Suche**: Sucht nach Stichworten in Namen, Positionen und Hilfetexten.
+- **System-Erklärungen**: Importiert Prosa-Texte aus der `DOKU.txt`, um komplexe Logik (wie den Watchdog) verständlich zu machen.
+
+**Nutzung:**
+
+```bash
+python LpHelp.py
+Gib einfach ein Schlagwort wie "Dimmer", "Watchdog" oder "Macro" ein.
+
+Dokumentations-Struktur (DOKU.txt)
+In der DOKU.txt werden die internen Module detailliert beschrieben. Jeder Abschnitt beginnt mit ###, gefolgt vom Modulnamen.
+```
+
 --
 *Entwickelt von Aeneas | Version 0.5.4*
