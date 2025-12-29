@@ -21,6 +21,12 @@ Das System nutzt den globalen Namespace `_G.LivePage`, um Daten zwischen verschi
 - **localVariables**: `camelCase`
 - **Argument_Variables**: `Pascal_Snake_Case`
 
+### Import
+
+Platziere die Plugins in den GMA Plugins Ordner.
+Führe Befehle: `Import "LivePage_Import" At Plugin 2` aus.
+Fertig.
+
 ## LivePage Core-Module
 
 ### Watchdog (System-Recovery)

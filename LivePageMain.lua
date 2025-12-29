@@ -1,10 +1,35 @@
 -- LivePageMain.lua
 
 -- 1. GLOBALE REGISTRIERUNG
-_G.LivePage = { --TODO: Namespace für WatchDog und andere Module
+_G.LivePage = { --TODO: Namespace für WatchDog und andere Module -- TODO: Debug Global local entfernen und immer mit _G umsetzen. 
     Version = "0.5.4",
     IsRunning = false, -- Global Running Flag
-    SuperUser = false, -- Niemals anschalten ohen zuwissen was es macht !
+    CurrentActiveConfig = nil,
+    DimmmerManager = {
+        fadeTimeFaderName = "100.106",  -- Fade Time Executor
+        fadeTimeDefault = 3,     -- Standard Fade Zeit
+        IsTrackingFade = {},     -- Info Variable um Fading zu tracken
+        ExecutorGroup = {
+            Exec1 = {
+                Name = "LEDUV",
+                Exec = "100.101",
+                Macro = "20",
+                Dimmer = "0",
+            },
+            Exec2 = {
+                Name = "PAR6",
+                Exec = "100.102",
+                Macro = "21",
+                Dimmer = "0",
+            },
+            Exec3 = {
+                Name = "MMH",
+                Exec = "100.103",
+                Macro = "22",
+                Dimmer = "0",
+            }
+        },
+    },
     WatchDog = {
         Enabled = true,
         Padentic = true,
@@ -18,6 +43,8 @@ _G.LivePage = { --TODO: Namespace für WatchDog und andere Module
     },
     Settings = {
         LoopInterval = 0.5,
+        UpdateRate = 0.1,    -- Sekunden
+        SuperUser = false,   -- Niemals anschalten ohen zuwissen was es macht !
         LogDisplayLevel = 2, -- 0=All Logs, 1=Debug, 2=Info, 3=Warn, 4=Error, 5=None
         ForceLog = false,    -- Druck alle Logs unabhängig vom Level in Echo (Vollständig Logs in Echo)
     },
@@ -28,20 +55,28 @@ _G.LivePage = { --TODO: Namespace für WatchDog und andere Module
         Prod = false,
     },
     MacroSettings = {
-        DisplayMacroID = 420 -- Status Anzeige Macro ID (placeholder)
+        macroRoot = 106, -- 1:0
+        macroMax = 164,  -- 3:14
+        macroPageSize = 15,
+        DisplayMacroID = 420, -- Status Anzeige Macro ID (placeholder)
+    },
+    Color = {
+        red    = "#FF0000",
+        green  = "#00FF00",
+        blue   = "#0000FF",
+        MAgold = "#FFCC00",
+        grey   = "#222222",
+        cyan   = "#00FFFF",
+        orange = "#FFA500",
+        yellow = "#FFFF00",
     }
 }
 
-Color = {
-    red    = "#FF0000",
-    green  = "#00FF00",
-    blue   = "#0000FF",
-    MAgold = "#FFCC00",
-    grey   = "#222222",
-    cyan   = "#00FFFF",
-    orange = "#FFA500",
-    yellow = "#FFFF00",
-}
+-- Globals --
+local DM = _G.LivePage.DimmmerManager
+local Color = _G.LivePage.Color
+
+
 -- Lädt Files, falls nicht in grandMA2 Umgebung
 if not gma then require("gmaDummy") end  -- Remove in Prod
 require("DimmerManager")  -- Provisorisch bitte Richtig machen
@@ -148,7 +183,7 @@ function ForceCleanUp()
 end
 
 function KillLivePage()
-    if not _G.LivePage.SuperUser then LLog("Unable to kill LivePage. Permission denied.", "W") return end
+    if not _G.LivePage.Settings.SuperUser then LLog("Unable to kill LivePage. Permission denied.", "W") return end
     _G.LivePage.IsRunning = false
     -- Alle Timer stoppen (indem wir sie nicht neu aufrufen)
     LLog("PLUGIN TERMINATED BY USER", "M")
@@ -183,7 +218,7 @@ function UpdateStatusDisplay()
 
     -- Fader Count
     local fadeCount = 0
-    for _ in pairs(IsTrackingFade or {}) do fadeCount = fadeCount + 1 end
+    for _ in pairs(DM.IsTrackingFade or {}) do fadeCount = fadeCount + 1 end
 
     -- WatchDog
     local restartText = ""
@@ -212,7 +247,7 @@ function LLog(msg, level) -- Lazy Log = LLog
     if _G.LivePage.Settings.LogDisplayLevel == 0 then return end -- Logging disabled
     local finalMsg = "Error Logging Message"
     local prefix = { "[DEBUG]", "[INFO]", "[WARN]", "[ERROR]" }
-    
+
     -- Format String
     if type(level) == "string" then
         local specialPrefixes = {

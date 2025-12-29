@@ -1,15 +1,8 @@
 -- MacroConfig --
 -- Konfigurationsdatei für Makros um nicht die Interface Datei ändern zu müssen während der Entwicklung
 
--- Colors --
-Color = {
-    red    = "#FF0000",
-    green  = "#00FF00",
-    blue   = "#0000FF",
-    MAgold = "#FFCC00",
-    grey   = "#222222",
-    cyan   = "#00FFFF",
-}
+-- Globals --
+local Color = _G.LivePage.Color
 
 -- Beispielcongiguration --
 MacroConfig = {

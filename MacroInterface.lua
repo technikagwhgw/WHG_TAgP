@@ -1,15 +1,10 @@
 -- Macro LivePage Interface --
 -- Verwaltet die Macros für die LivePage
 
--- Variables --
--- TODO: Macro Settings in _G legen 
-local macroRoot = 106 -- 1:0
-local macroMax = 164  -- 3:14
-local macroPageSize = 15
-
-CurrentActiveConfig = nil
-local enableHelp = true
+-- Globals --
 local debug = _G.LivePage.Debug.Enabled
+local MS = _G.LivePage.MacroSettings
+local Color = _G.LivePage.Color
 
 -- Macro Config --
 -- Paste MacroConfig here ...
@@ -18,17 +13,6 @@ local debug = _G.LivePage.Debug.Enabled
 
 
 
--- Colors --
-Color = {
-    red    = "#FF0000",
-    green  = "#00FF00",
-    blue   = "#0000FF",
-    MAgold = "#FFCC00",
-    grey   = "#222222",
-    cyan   = "#00FFFF",
-    orange = "#FFA500",
-    yellow = "#FFFF00",
-}
 
 -- Lädt gmaDummy, falls nicht in grandMA2 Umgebung
 if not gma then require("gmaDummy") end  -- Remove in Prod
@@ -105,7 +89,7 @@ end
 -- TODO: Generelle Definition für ID einführen aktuell sehr wage definiert
 function ConvertMacroAddr(Macro_Addr)
     -- Beispiel Page0 "1:0" -> "106"
-    local base = tonumber(macroRoot)
+    local base = tonumber(MS.macroRoot)
     local sepInx = string.find(Macro_Addr, ":")
     if not sepInx then
         LLog("ConvertMacroAddr: Ungültige Macro Adresse '" .. Macro_Addr .. "'", 4)
@@ -119,7 +103,7 @@ function ConvertMacroAddr(Macro_Addr)
         return nil
     end
 
-    local macroNumber = (base - 1) + (yValue * macroPageSize + xValue)
+    local macroNumber = (base - 1) + (yValue * MS.macroPageSize + xValue)
     return macroNumber  -- id
 end
 
@@ -130,8 +114,8 @@ function SelectPage(PageName)
         return nil
     end
 
-    for i = 1, macroMax - macroRoot do
-        local macroID = macroRoot + i - 1
+    for i = 1, MS.macroMax - MS.macroRoot do
+        local macroID = MS.macroRoot + i - 1
         local action = config.actions[i]
 
         -- Pos Override
@@ -151,14 +135,14 @@ function SelectPage(PageName)
         end
     end
     LLog("Layout auf " .. PageName .. " umgeschaltet.", 2)
-    CurrentActiveConfig = config
+    _G.LivePage.CurrentActiveConfig = config
 end
 
 function ApplyMacroConfig(action, macroID)
     local indexOffset = 0
     gma.cmd("Delete Macro 1." .. macroID .. ".*")
     
-    if action.help and enableHelp then
+    if action.help and _G.LivePage.Debug.Help then
         gma.cmd('Store Macro 1.' .. macroID .. '.1')
         gma.cmd('Set Macro 1.' .. macroID .. '.1 Command "CheckHelp(' .. macroID .. ')"')
         indexOffset = 1
@@ -206,12 +190,12 @@ function CheckHelp(id)
 end
 
 function ShowHelp(id)
-    if not CurrentActiveConfig then
+    if not _G.LivePage.CurrentActiveConfig then
         gma.gui.msgbox(getExceptionMsg(), "Keine aktive Macro Seite ausgewählt.")
         return
     end
 
-    local action = CurrentActiveConfig.actions[id]
+    local action = _G.LivePage.CurrentActiveConfig.actions[id]
     if action and action.help then
         gma.gui.msgbox("Hilfe: " .. action.name, action.help)
     else
@@ -335,7 +319,7 @@ function CycleEffect(id)
 
     gma.cmd(action.cmd)
 
-    local macroID = macroRoot + id - 1
+    local macroID = MS.macroRoot + id - 1
     gma.cmd('Label Macro ' .. macroID .. ' "' .. action.name .. '"')
     gma.cmd('Appearance Macro ' .. macroID .. ' /color="' .. action.color .. '"')
 end

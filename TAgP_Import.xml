@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MA xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.malighting.de/grandma2/ma" xsi:schemaLocation="http://schemas.malighting.de/grandma2/ma http://schemas.malighting.de/grandma2/ma/ma.xsd" Vers="3.9.6.1">
+    <Plugin Name="LivePage_System" Loaded="No">
+        <ComponentLua Name="LivePageMain" FileName="LivePageMain.lua" />
+        <ComponentLua Name="DimmerManager" FileName="DimmerManager.lua" />
+        <ComponentLua Name="MacroInterface" FileName="MacroInterface.lua" />
+        <ComponentLua Name="MacroConfig" FileName="MacroConfig.lua" />
+    </Plugin>
+</MA>

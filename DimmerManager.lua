@@ -1,63 +1,28 @@
 -- DimmerManager --
 -- Manages LivePage Dimmer
 
--- Global Variables --
-local fadeTimeFaderName = "100.106"   -- Fade Time Executor
-local fadeTimeDefault = 3     -- Standard Fade Zeit
-UpdateRate = 0.1        -- Sekunden -- mögliche Verschiebung in LivePageMain.lua
-IsTrackingFade = {}     -- Info Variable um Fading zu tracken
+-- Globals --
 local debug = _G.LivePage.Debug.Enabled
-
--- Executor Group --
-EGroup = {
-    Exec1 = {
-        Name = "LEDUV",
-        Exec = "100.101",
-        Macro = "20",
-        Dimmer = "0",
-    },
-    Exec2 = {
-        Name = "PAR6",
-        Exec = "100.102",
-        Macro = "21",
-        Dimmer = "0",
-    },
-    Exec3 = {
-        Name = "MMH",
-        Exec = "100.103",
-        Macro = "22",
-        Dimmer = "0",
-    }
-}
-
--- Colors --
-Color = {
-    red    = "#FF0000",
-    green  = "#00FF00",
-    blue   = "#0000FF",
-    MAgold = "#FFCC00",
-    grey   = "#222222",
-    cyan   = "#00FFFF",
-}
+local DM = _G.LivePage.DimmmerManager
+local EGroup = DM.ExecutorGroup
+local Color = _G.LivePage.Color
 
 -- Lädt gmaDummy, falls nicht in grandMA2 Umgebung
 if not gma then require("gmaDummy") end  -- Remove in Prod
-
 
 -------------------------------------------
 --               Functions               --
 -------------------------------------------
 
 -- Dimmer Executor Functions --
-
 function ApplyValueChange(T_Exec, T_Dimmer)
     EGroup[T_Exec].Dimmer = T_Dimmer
     EvalDimmer()
 
     gma.cmd("Executor " .. EGroup[T_Exec].Exec .. " At " .. EGroup[T_Exec].Dimmer .. " Fade " .. FadeTime())
     gma.cmd("Appearance Macro " .. EGroup[T_Exec].Macro .. " Color " .. Color.red)
-    
-    IsTrackingFade[T_Exec] = true
+
+    DM.IsTrackingFade[T_Exec] = true
     gma.timer(function() CheckFading(T_Exec) end, FadeTime(), 1)
 
     LabelMacro(T_Exec)
@@ -71,15 +36,15 @@ function CheckFading(T_Exec)
 
     if isFading == "No" or isFading == nil then
         gma.cmd("Appearance Macro " .. EGroup[T_Exec].Macro .. " /color='" .. Color.green .. "'")
-        IsTrackingFade[T_Exec] = nil -- Tracking beenden
+        DM.IsTrackingFade[T_Exec] = nil -- Tracking beenden
     else
-        
-        gma.timer(function() CheckFading(T_Exec) end, UpdateRate, 1)
+
+        gma.timer(function() CheckFading(T_Exec) end, _G.LivePage.Settings.UpdateRate, 1)
     end
 end
 
 function FadeTime()
-    return tonumber(gma.show.getvar("fader_" .. fadeTimeFaderName)) or fadeTimeDefault
+    return tonumber(gma.show.getvar("fader_" .. DM.fadeTimeFaderName)) or DM.fadeTimeDefault
 end
 
 function EvalDimmer()
@@ -125,7 +90,7 @@ function ExecTest()
             testPassed = false
         end
     end
-    if not gma.show.getobj.handle("Executor " .. fadeTimeFaderName) then testPassed = false end
+    if not gma.show.getobj.handle("Executor " .. DM.fadeTimeFaderName) then testPassed = false end
 
     -- Ausgabe des Testergebnisses --
     if not testPassed then
