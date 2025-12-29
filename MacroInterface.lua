@@ -68,35 +68,69 @@ function ConvertMacroAddr(Macro_Addr)
     return macroNumber  -- id
 end
 
-function SelectPage(PageName)
-    local config = MacroConfig[PageName]
-    if not config then 
-        LLog("SelectPage: Seite '" .. PageName .. "' nicht in MacroConfig gefunden!", 3)
-        return nil
+function UpdateMacroLabels(pageName)
+    local pageData = MacroConfig[pageName]
+    if not pageData or not pageData.actions then 
+        LLog("UpdateLabels: Seite nicht gefunden oder leer", 3)
+        return 
     end
 
-    for i = 1, MS.macroMax - MS.macroRoot do
-        local macroID = MS.macroRoot + i - 1
-        local action = config.actions[i]
-
-        -- Pos Override
-        if action.pos then
-            local convertedID = ConvertMacroAddr(action.pos)
-            if convertedID then
-                macroID = convertedID
-            end
-        end
-
-        if action.content then
-            ApplyMacroConfig(action, macroID)
-        else
-            if not config.suppressEmpty then
-                LLog('SelectPage: Kein Action für Macro ' .. macroID, 3)
-            end
-        end
+    for i = 0, MS.macroPageSize - 1 do
+        gma.cmd(string.format("Label Macro %d \"--\"", MS.macroRoot + i))
     end
-    LLog("Layout auf " .. PageName .. " umgeschaltet.", 2)
-    _G.LivePage.CurrentActiveConfig = config
+
+    for idx, action in pairs(pageData.actions) do
+        local macroID = MS.macroRoot + idx - 1
+        local label = tostring(action.name or "Empty")
+        gma.cmd(string.format("Label Macro %d \"%s\"", macroID, label))
+    end
+end
+
+function SyncPageUI(pageName)
+    local pageData = MacroConfig[pageName]
+    if not pageData or not pageData.actions then return end
+
+    LLog("Syncing UI for Page: " .. pageName, "DEBUG")
+
+    for idx, action in pairs(pageData.actions) do
+        local macroID = MS.macroRoot + idx - 1
+        local isActive = false
+
+        if action.syncID and action.type then
+            isActive = IsContentActive(action.type, action.syncID)
+        end
+
+        local colorActive = pageData.color or Color.green
+        local finalColor = isActive and colorActive or Color.grey
+
+        gma.cmd(string.format("Appearance Macro %d /color='%s'", macroID, finalColor))
+    end
+end
+
+function IsContentActive(contentType, id)
+    if contentType == "Preset" then
+        local handle = gma.show.getobj.handle("Preset " .. id)
+        if handle then
+            return gma.show.property.get(handle, "active") == "Yes"
+        end
+    elseif contentType == "Effect" then
+        local handle = gma.show.getobj.handle("Effect " .. id)
+        return gma.show.property.get(handle, "running") == "Yes"
+    end
+    return false
+end
+
+function ChangePage(name)
+    if not MacroConfig[name] then 
+        LLog("Seitenwechsel fehlgeschlagen: " .. tostring(name) .. " nicht in Config!", 4)
+        return 
+    end
+    _G.LivePage.CurrentActiveConfig = name
+    
+    UpdateMacroLabels(name)
+    SyncPageUI(name)
+    LLog("Page gewechselt: " .. name, "I")
+    UpdateStatusDisplay() 
 end
 
 function ApplyMacroConfig(action, macroID)

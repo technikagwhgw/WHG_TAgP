@@ -86,15 +86,29 @@ Ein zentraler Validierungs-Check vor dem Systemstart ersetzt die alten Einzelfun
 - `GetFadeTime()`: Holt die aktuelle Zeit des Master-Faders (0-100% skaliert auf Sekunden).
 - `LabelMacro(T_Exec)`: Dynamische Beschriftung der Buttons (Name + aktueller Dimmerwert).
 
-### Macro Interface
+### Macro Interface (UI & Page Management)
 
-Dynamische Verwaltung der Macro-Oberfläche basierend auf der `MacroConfig.lua`.
+Das Interface-Modul steuert die physischen Macros auf der grandMA2 und verknüpft diese mit der `MacroConfig.lua`.
+
+#### Hauptfunktionen
+
+- `ChangePage(pageName)`: Der zentrale Befehl für den Seitenwechsel. Aktualisiert automatisch Labels und triggert den UI-Sync.
+- `UpdateMacroLabels(pageName)`: Schreibt die Namen aus der Konfiguration auf die Buttons. Bereinigt automatisch ungenutzte Slots.
+- `SyncPageUI(pageName)`: Kern des Page-Morphings. Prüft für jeden Button den Status der hinterlegten `syncID` und setzt die Appearance (Farbe).
+- `IsContentActive(type, id)`: Hardware-Abfrage an die MA2. Erkennt, ob Presets "Active" im Programmer sind oder Effekte "Running" im Playback.
+
+#### Zusatzfunktionen
 
 - **ConvertMacroAddr**: Berechnet die Ziel-ID aus Koordinaten (X:Y) basierend auf einer `MacroRoot`.
-- **SelectPage**: Schaltet zwischen verschiedenen Layouts (z.B. "Spot", "Wash") um.
-- **ApplyMacroConfig**: Generiert Macros inklusive Multi-Line Commands und Wait-Times.
 - **SmartPress**: Erkennt Single-, Double- und Long-Press (0.5s) Eingaben für erweiterte Button-Funktionen.
 - **RadioSelect / CycleEffect**: Funktionen zur Erstellung von Radio-Buttons oder Befehls-Zyklen.
+
+#### Unterstützte Datentypen in der Config
+
+| Typ | Beschreibung | Beispiel |
+| :--- | :--- | :--- |
+| **String** | Einfacher CMD-Befehl | `"Preset 1.1"` |
+| **Table** | Sequenz mit Wartezeiten | `{{cmd="...", wait="0.5"}, ...}` |
 
 ## Development & Testing
 
@@ -140,8 +154,10 @@ In der DOKU.txt werden die internen Module detailliert beschrieben. Jeder Abschn
 
 ## Version 0.6.x Highlights
 
-- **Namespace-Refactoring**: Umstellung aller Module auf den zentralen `_G.LivePage` Namespace.
-- **Performance**: Integration von `gma.timer` anstelle von blockierenden Loops im Dimmer-Check.
-- **Reliability**: Zusammenfassung aller Startup-Tests in eine fehlertolerante `SystemCheck()` Routine.
+- **Page-Morphing & Sync**: Dynamisches UI-Feedback. Macros zeigen durch Farben (`ActiveColor`) an, ob Presets oder Effekte in der Konsole bereits aktiv sind.
+- **Smart Startup-Sequence**: Zentraler `SystemCheck()` validiert Hardware (Executoren), Macros und die `MacroConfig.lua` vor dem Start.
+- **Dynamic Performance**: CPU-schonender "Eco-Mode" (1.5s Tick) im Leerlauf und automatischer "High-Performance" Modus (0.5s Tick) bei Aktivität.
+- **Safe Execution**: Vollständige Trennung von Logik und Daten zur Vermeidung von Typ-Fehlern (`string|table` Fix).
+
 --
-*Entwickelt von Aeneas | Version 0.6.1*
+*Entwickelt von Aeneas | Version 0.6.2*

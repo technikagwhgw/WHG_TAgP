@@ -11,31 +11,60 @@ MacroConfig = {
         actions = {
             [1] = {
                 name = "Gobo Wheel", 
-                content = "Attribute 'Gobo1' At +10",
+                content = "Preset 3.1",
+                type = "Preset",
+                syncID = "3.1",
                 pos = "2:7",
-                help = "Generic.help help text hier" },
+                help = "Wählt das Standard-Gobo aus Pool 3." 
+            },
             [2] = {
-                name = "Reset Focus",
-                content = "Attribute 'Focus' At 50",
-                help = "Generic.help help text hier" },
+                name = "Ballyhoo",
+                content = {
+                    {cmd = "Group 5 At 100", wait = "0.1"},
+                    {cmd = "Effect 101 On"}
+                },
+                type = "Effect",
+                syncID = "101",
+                help = "Startet Kreis-Bewegung für Spots."
+            },
             [3] = {
                 name = "Reset + Home",
                 content = {
-                    {cmd = "Group 5 At 100",wait = "0.5"},
+                    {cmd = "Group 5 At 100", wait = "0.5"},
                     {cmd = "Attribute 'Pan' At 0"},
                     {cmd = "Attribute 'Tilt' At 0"},
-                    {cmd = "Effect 1 Off",wait = "Go"}
+                    {cmd = "Effect 1 thru 10 Off", wait = "0.1"}
                 },
                 pos = "1:3",
-                help = "Generic.help help text hier"
+                help = "Setzt alle Moving Heads in Home-Position."
             }
         }
     },
     ["Wash"] = {
         color = Color.green,
         actions = {
-            [1] = { name = "Wide", cmd = "Attribute 'Zoom' At 100" },
-            [2] = { name = "Tight", cmd = "Attribute 'Zoom' At 0" },
+            [1] = { 
+                name = "Wide Zoom", 
+                content = "Preset 3.5", -- Angenommen 3.5 ist 'Zoom Wide'
+                type = "Preset",
+                syncID = "3.5"
+            },
+            [2] = { 
+                name = "Flash White", 
+                content = {
+                    {cmd = "Group 6 At 100", wait = "0.1"},
+                    {cmd = "Preset 4.1"}, -- Weiß
+                    {cmd = "Group 6 At 0", wait = "1.0"}
+                },
+                type = "Preset",
+                syncID = "4.1" -- Leuchtet, solange Weiß aktiv ist
+            },
+            -- Platzhalter Button ---
+            [3] = {
+                name = "NOT ASSIGNED",
+                content = "LLog('Button ohne Funktion', 3)",
+                help = "Diesen Button in der Config belegen."
+            }
         }
     }
 }

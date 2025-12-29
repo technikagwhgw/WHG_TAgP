@@ -2,7 +2,7 @@
 
 -- 1. GLOBALE REGISTRIERUNG
 _G.LivePage = { --TODO: Namespace für WatchDog und andere Module -- TODO: Debug Global local entfernen und immer mit _G umsetzen. 
-    Version = "0.6.1",
+    Version = "0.6.2",
     IsRunning = false, -- Global Running Flag
     CurrentActiveConfig = nil,
     DimmerManager = {
