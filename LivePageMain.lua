@@ -2,10 +2,10 @@
 
 -- 1. GLOBALE REGISTRIERUNG
 _G.LivePage = { --TODO: Namespace für WatchDog und andere Module -- TODO: Debug Global local entfernen und immer mit _G umsetzen. 
-    Version = "0.5.4",
+    Version = "0.6.0",
     IsRunning = false, -- Global Running Flag
     CurrentActiveConfig = nil,
-    DimmmerManager = {
+    DimmerManager = {
         fadeTimeFaderName = "100.106",  -- Fade Time Executor
         fadeTimeDefault = 3,     -- Standard Fade Zeit
         IsTrackingFade = {},     -- Info Variable um Fading zu tracken
@@ -73,7 +73,7 @@ _G.LivePage = { --TODO: Namespace für WatchDog und andere Module -- TODO: Debug
 }
 
 -- Globals --
-local DM = _G.LivePage.DimmmerManager
+local DM = _G.LivePage.DimmerManager
 local Color = _G.LivePage.Color
 
 
