@@ -38,7 +38,7 @@ if not gma then require("gmaDummy") end  -- Remove in Prod
 -------------------------------------------
 
 function ValidateConfig()
-    gma.echo("--- Starte Config Check ---")
+    LLog("Starte Config Check", "M")
     local errorCount = 0
 
     if not MacroConfig then 
@@ -49,18 +49,18 @@ function ValidateConfig()
     for pageName, pageData in pairs(MacroConfig) do
         -- Check 1: Actions
         if not pageData.actions then
-            gma.echo("FEHLER: Seite '" .. pageName .. "' hat keine 'actions' Tabelle!")
+            LLog("Seite '" .. pageName .. "' hat keine 'actions' Tabelle!", 4)
             errorCount = errorCount + 1
         else
             for idx, action in pairs(pageData.actions) do
                 -- Check 2: Content-Typ 
                 if type(action.content) ~= "string" and type(action.content) ~= "table" then
-                    gma.echo("SYNTAX FEHLER: Action [" .. idx .. "] in '" .. pageName .. "' hat ungültigen Content!")
+                    LLog("SYNTAX FEHLER: Action [" .. idx .. "] in '" .. pageName .. "' hat ungültigen Content!", 4)
                     errorCount = errorCount + 1
                 end
                 -- Check 3: Komma-Fehler (Leere Einträge)
                 if not action then
-                    gma.echo("WARNUNG: Lücke in der Tabelle bei ID " .. idx .. " auf Seite '" .. pageName .. "' gefunden!")
+                    LLog("Lücke in der Tabelle bei ID " .. idx .. " auf Seite '" .. pageName .. "' gefunden!", 3)
                 end
             end
         end
@@ -70,19 +70,10 @@ function ValidateConfig()
         gma.gui.msgbox("Config Fehler", "Es wurden " .. errorCount .. " Fehler gefunden! Siehe Command Line für Informationen.")
         return false
     end
-    
-    gma.echo("--- Config Check erfolgreich ---")
+
+    LLog("Config Check erfolgreich", 2)
     return true
 end
-
-local status, err = pcall(function() 
-    ValidateConfig()
-end)
-
-if not status then
-    gma.gui.msgbox("Fatal Syntax Error", "Deine Config hat einen schweren Fehler: " .. err)
-end
-
 
 
 -- Fun Functions --
@@ -117,14 +108,14 @@ function ConvertMacroAddr(Macro_Addr)
     local base = tonumber(macroRoot)
     local sepInx = string.find(Macro_Addr, ":")
     if not sepInx then
-        gma.echo("ConvertMacroAddr: Ungültige Macro Adresse '" .. Macro_Addr .. "'")
+        LLog("ConvertMacroAddr: Ungültige Macro Adresse '" .. Macro_Addr .. "'", 4)
         return nil
     end
     local xValue = tonumber(string.sub(Macro_Addr, 1, sepInx - 1))
     local yValue = tonumber(string.sub(Macro_Addr, sepInx + 1))
 
     if xValue == 0 and yValue == 0 then
-        gma.echo("ConvertMacroAddr: Ungültige Macro Adresse '" .. Macro_Addr .. "' Kein Addresse kleiner RootMacro!")
+        LLog("ConvertMacroAddr: Ungültige Macro Adresse '" .. Macro_Addr .. "' Kein Addresse kleiner RootMacro!", 4)
         return nil
     end
 
@@ -135,7 +126,7 @@ end
 function SelectPage(PageName)
     local config = MacroConfig[PageName]
     if not config then 
-        gma.echo("SelectPage: Seite '" .. PageName .. "' nicht in MacroConfig gefunden!")
+        LLog("SelectPage: Seite '" .. PageName .. "' nicht in MacroConfig gefunden!", 3)
         return nil
     end
 
@@ -155,11 +146,11 @@ function SelectPage(PageName)
             ApplyMacroConfig(action, macroID)
         else
             if not config.suppressEmpty then
-                gma.echo('SelectPage: Kein Action für Macro ' .. macroID)
+                LLog('SelectPage: Kein Action für Macro ' .. macroID, 3)
             end
         end
     end
-    gma.feedback("Layout auf " .. PageName .. " umgeschaltet.")
+    LLog("Layout auf " .. PageName .. " umgeschaltet.", 2)
     CurrentActiveConfig = config
 end
 
@@ -200,9 +191,9 @@ local isHelpModeActive = false
 function ToggleHelpMode()
     isHelpModeActive = not isHelpModeActive
     if isHelpModeActive then
-        gma.echo("Help Mode aktiviert.")
+        LLog("Help Mode aktiviert.", 2)
     else
-        gma.echo("Hilfe-Modus beendet.")
+        LLog("Hilfe-Modus beendet.", 2)
     end
 end
 
@@ -243,20 +234,20 @@ function SmartPress(state, id)
 
     if state == "START" then
         startTime[id] = now
-        gma.echo("LongPress: START für ID " .. id)
+        LLog("LongPress: START für ID " .. id, 1)
     elseif state == "STOP" then
         local startTime = startTime[id] or 0
         local duration = now - startTime
 
         -- LongPress
         if duration >= long_press_threshold then
-            gma.echo("LongPress: LONG PRESS erkannt für ID " .. id)
+            LLog("LongPress: LONG PRESS erkannt für ID " .. id, 1)
             LongPressAction(id)
         else
             -- DoublePress
             local lastClick = lastClickTime[id] or 0
             if (now - lastClick) <= double_click_threshold then
-                gma.echo("LongPress: DOUBLE PRESS erkannt für ID " .. id)
+                LLog("LongPress: DOUBLE PRESS erkannt für ID " .. id, 1)
                 DoublePressAction(id)
                 lastClickTime[id] = 0 -- Reset
             else
@@ -265,7 +256,7 @@ function SmartPress(state, id)
                 gma.timer(function() 
                     if lastClickTime[id] == now then
                         ShortPressAction(id)
-                        gma.echo("SmartPress: KURZER PRESS erkannt für ID " .. id)
+                        LLog("SmartPress: KURZER PRESS erkannt für ID " .. id, 1)
                     end
                 end, double_click_threshold, 1)
             end

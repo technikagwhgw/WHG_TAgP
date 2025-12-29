@@ -64,7 +64,7 @@ function ApplyValueChange(T_Exec, T_Dimmer)
 end
 
 function CheckFading(T_Exec)
-    if not T_Exec or not EGroup[T_Exec] then gma.echo("CheckFading: Ungültiger Executor!") return end
+    if not T_Exec or not EGroup[T_Exec] then LLog("CheckFading: Ungültiger Executor!", 3) return end
     
     local handle = gma.show.getobj.handle("Executor " .. EGroup[T_Exec].Exec)
     local isFading = gma.show.property.get(handle, 'isFading')
@@ -129,18 +129,16 @@ function ExecTest()
 
     -- Ausgabe des Testergebnisses --
     if not testPassed then
-        gma.echo(" --- DIMMER MANAGER: DATA HANDLE NOT FOUND! --- ")
+        LLog("DIMMER MANAGER: DATA HANDLE NOT FOUND!", 4)
+        return false
     else
-        gma.echo(" --- DIMMER MANAGER: INITIALISIERUNG ERFOLGREICH --- ")
-        return nil
+        LLog("DIMMER MANAGER: INITIALISIERUNG ERFOLGREICH", 2)
+        return true
     end
 end
 
--- Initialisierung --
-ExecTest()
-
 -- Funktionen Test --
-if debug then -- Remove in Prod
+if debug and not _G.LivePage.Debug.Prod then -- Remove in Prod
     print("\n------------------------------------\n")
     print("ApplyValueChange Exec1 auf 0\n")
     ApplyValueChange("Exec1", 0)

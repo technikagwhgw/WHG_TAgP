@@ -2,7 +2,7 @@
 
 -- 1. GLOBALE REGISTRIERUNG
 _G.LivePage = {
-    Version = "0.5.3",
+    Version = "0.5.4",
     IsRunning = false, -- Global Running Flag
     SuperUser = false, -- Niemals anschalten ohen zuwissen was es macht !
     WatchDog = {
@@ -18,11 +18,13 @@ _G.LivePage = {
     },
     Settings = {
         LoopInterval = 0.5,
+        LogLevel = 2, -- 0=All Logs, 1=Debug, 2=Info, 3=Warn, 4=Error, 5=None
     },
     Debug = {
         Enabled = true,
         Help = true,
         Padentic = false, -- Future Feature
+        Prod = false,
     },
     MacroSettings = {
         DisplayMacroID = 420 -- Status Anzeige Macro ID (placeholder)
@@ -44,20 +46,22 @@ Color = {
 -- 2. INIT
 -----------------------------------------------------------
 function InitPlugin()
-    gma.feedback("--- Start LivePage Setup ---")
-    gma.feedback("Plugin Version: " .. _G.LivePage.Version)
+    LLog("Start LivePage Setup", "M")
+    LLog("Plugin Version: " .. _G.LivePage.Version, 2)
     -- Future Feature
     -- Datein laden (Hierarchisch wichtig!)
     -- dofile(gma.show.getvar('PATH') .. "/DimmerManager.lua")
     -- dofile(gma.show.getvar('PATH') .. "/MacroInterface.lua")
 
     -- Validierung
-    local errorCollector = ValidateConfig()
-    if not ExecTest then errorCollector = ExecTest() end -- DimmerManager Test
+    local status, errorCollector = pcall(function() 
+        ValidateConfig()
+    end)
+    status = ExecTest() -- DimmerManager Test
 
-    if errorCollector == nil then
+    if errorCollector == 0 and status == true then
         _G.LivePage.IsRunning = true
-        gma.echo("--- Setup erfolgreich beendet ---")
+        LLog("Setup erfolgreich beendet", "M")
 
         -- Init Done
         MainLoop()
@@ -73,7 +77,7 @@ end
 function MainLoop()
     if not _G.LivePage.IsRunning then 
         gma.cmd("Off Plugin Thru") 
-        gma.echo("--- PLUGIN STOPPED ---")
+        LLog("PLUGIN STOPPED", "M")
         return
     end
     -- Hier kommen alle Funktionen rein, die regelmäßig ausgeführt im Hintergrund laufen sollen
@@ -93,26 +97,26 @@ function WatchDog() -- ToDo: Namespace für WatchDog
 
     if _G.LivePage.WatchDog.Enabled and timeSinceLastResponse > _G.LivePage.WatchDog.MaxResponseTime then
         _G.LivePage.WatchDog.RestartCount = _G.LivePage.WatchDog.RestartCount + 1
-        gma.feedback("!!! WATCHDOG: MainLoop antwortet seit " .. timeSinceLastResponse .. " Sekunden nicht. Force Plugin Restart !!! (Restart Count: " ..
-        _G.LivePage.WatchDog.RestartCount .. ")")
-        
+        LLog("MainLoop antwortet seit " .. timeSinceLastResponse .. " Sekunden nicht. Force Plugin Restart !!! (Restart Count: " ..
+        _G.LivePage.WatchDog.RestartCount .. ")", "W")
+
         if not _G.LivePage.WatchDog.OverrideForceStop and _G.LivePage.WatchDog.RestartCount > 3 then
-            gma.feedback("!!! WATCHDOG: Override Force Stop aktiviert. Plugin wird nicht neu gestartet. !!!")
+            LLog("Override Force Stop aktiviert. Plugin wird nicht neu gestartet. !!!", "W")
             _G.LivePage.IsRunning = false
             return
         else
             -- Restart Plugin
-            gma.echo("!!! WATCHDOG: Stop Plugin ... !!!")
+            LLog("Stop Plugin ...", "W")
             _G.LivePage.IsRunning = false
             ForceCleanUp()
-            for i = 1, 3 do gma.sleep(1) gma.echo("...") end
-            gma.echo("!!! WATCHDOG: Initialisiere Plugin !!!")
+            for i = 1, 3 do gma.sleep(1) LLog("...", "M") end
+            LLog("Initialisiere Plugin !!!", "W")
             InitPlugin()
         end
     elseif _G.LivePage.WatchDog.Enabled and _G.LivePage.WatchDog.Padentic and
     timeSinceLastResponse > (_G.LivePage.WatchDog.MaxResponseTime - (_G.LivePage.WatchDog.Interval * 3)) then
 
-        gma.echo("!!! WATCHDOG WARNUNG: MainLoop antwortet seit " .. timeSinceLastResponse .. " Sekunden nicht. Überwache Situation !!!")
+        LLog("MainLoop antwortet seit " .. timeSinceLastResponse .. " Sekunden nicht. Überwache Situation !!!", "W")
     else
         if _G.LivePage.IsRunning and _G.LivePage.WatchDog.RestartCountLimit and _G.LivePage.WatchDog.RestartCount > currentWatchDogRestartCap then
             gma.gui.msgbox("WATCHDOG WARNUNG", 
@@ -132,16 +136,16 @@ function ForceCleanUp()
         gma.cmd("Freeze Off")
         gma.cmd("Go Off")
         gma.cmd("Off Page Thru")
-        gma.echo("!!! WATCHDOG: Force CleanUp durchgeführt !!!")
+        LLog("Force CleanUp durchgeführt !","W")
         gma.sleep(1)
     end
 end
 
 function KillLivePage()
-    if not _G.LivePage.SuperUser then gma.feedback("Unable to kill LivePage. Permission denied.") return end
+    if not _G.LivePage.SuperUser then LLog("Unable to kill LivePage. Permission denied.", "W") return end
     _G.LivePage.IsRunning = false
     -- Alle Timer stoppen (indem wir sie nicht neu aufrufen)
-    gma.echo("--- PLUGIN TERMINATED BY USER ---")
+    LLog("PLUGIN TERMINATED BY USER", "M")
 
     -- Optisches Feedback im Display
     if _G.LivePage.MacroSettings.DisplayMacroID then
@@ -196,6 +200,31 @@ function UpdateStatusDisplay()
     gma.cmd('Appearance Macro ' .. displayMacroID .. ' /color="' .. color .. '"')
 end
 
+-- Global Log Function --
+function LLog(msg, level) -- Lazy Log = LLog
+    if _G.LivePage.Settings.LogLevel == 0 then return end -- Logging disabled
+    local finalMsg = "Error Logging Message"
+
+    -- Format String
+    if type(level) == "string" then
+        local specialPrefixes = {
+            W = "[WATCHDOG]",
+            M = "[MAIN]"
+        }
+        finalMsg = string.format("%s %s", specialPrefixes[level] or "[LOG]", msg)
+        level = 3 -- Default Level for string prefixes
+    else
+        local prefix = { "[DEBUG]", "[INFO]", "[WARN]", "[ERROR]" }
+        finalMsg = string.format("%s %s", prefix[level] or "[LOG]", msg)
+    end
+
+    -- Return based on level
+    if level >= _G.LivePage.Settings.LogLevel then
+        gma.feedback(finalMsg)
+    else
+        gma.echo(finalMsg)
+    end
+end
 
 --------------------------------------------------------------
 -- Plugin-Start beim Laden
