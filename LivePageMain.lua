@@ -1,7 +1,7 @@
 -- LivePageMain.lua
 
 -- 1. GLOBALE REGISTRIERUNG
-_G.LivePage = {
+_G.LivePage = { --TODO: Namespace für WatchDog und andere Module
     Version = "0.5.4",
     IsRunning = false, -- Global Running Flag
     SuperUser = false, -- Niemals anschalten ohen zuwissen was es macht !
@@ -18,7 +18,8 @@ _G.LivePage = {
     },
     Settings = {
         LoopInterval = 0.5,
-        LogLevel = 2, -- 0=All Logs, 1=Debug, 2=Info, 3=Warn, 4=Error, 5=None
+        LogDisplayLevel = 2, -- 0=All Logs, 1=Debug, 2=Info, 3=Warn, 4=Error, 5=None
+        ForceLog = false,    -- Druck alle Logs unabhängig vom Level in Echo (Vollständig Logs in Echo)
     },
     Debug = {
         Enabled = true,
@@ -41,6 +42,10 @@ Color = {
     orange = "#FFA500",
     yellow = "#FFFF00",
 }
+-- Lädt Files, falls nicht in grandMA2 Umgebung
+if not gma then require("gmaDummy") end  -- Remove in Prod
+require("DimmerManager")  -- Provisorisch bitte Richtig machen
+require("MacroInterface")
 
 -----------------------------------------------------------
 -- 2. INIT
@@ -59,14 +64,14 @@ function InitPlugin()
     end)
     status = ExecTest() -- DimmerManager Test
 
-    if errorCollector == 0 and status == true then
+    if not errorCollector and status == true then
         _G.LivePage.IsRunning = true
         LLog("Setup erfolgreich beendet", "M")
 
         -- Init Done
         MainLoop()
     else
-        gma.gui.msgbox("SETUP FEHLER", "Plugin wurde aufgrund von Fehlern gestoppt.")
+        gma.gui.msgbox("SETUP FEHLER", "Plugin wurde aufgrund von Fehlern gestoppt.(".. errorCollector ..")\nBitte Log überprüfen.")
     end
 end
 
@@ -92,6 +97,7 @@ end
 -- WATCHDOG --
 local currentWatchDogRestartCap = 3
 function WatchDog() -- ToDo: Namespace für WatchDog
+    if not _G.LivePage.WatchDog.Enabled then return end
     local currentTime = gma.gettime()
     local timeSinceLastResponse = currentTime - _G.LivePage.WatchDog.LastResponse
 
@@ -181,8 +187,8 @@ function UpdateStatusDisplay()
 
     -- WatchDog
     local restartText = ""
-    if lp.RestartCount and lp.RestartCount > 0 then
-        restartText = string.format(" RST:%d", lp.RestartCount)
+    if lp.WatchDog.RestartCount > 0 then
+        restartText = string.format(" RST:%d", lp.WatchDog.RestartCount)
     end
 
     -- Data String
@@ -194,17 +200,19 @@ function UpdateStatusDisplay()
 
     local color = Color.grey -- TODO: Color + Bedeutung Muss Überarbeitet werden
     if not lp.IsRunning then color = Color.red
-    elseif lp.RestartCount > 0 then color = Color.orange
+    elseif lp.WatchDog.RestartCount > 0 then color = Color.orange
     elseif lp.Debug.Help then color = Color.yellow end
 
     gma.cmd('Appearance Macro ' .. displayMacroID .. ' /color="' .. color .. '"')
 end
 
 -- Global Log Function --
+-- ggf. Log in andere Datei verschieben wegen Funktion Override 
 function LLog(msg, level) -- Lazy Log = LLog
-    if _G.LivePage.Settings.LogLevel == 0 then return end -- Logging disabled
+    if _G.LivePage.Settings.LogDisplayLevel == 0 then return end -- Logging disabled
     local finalMsg = "Error Logging Message"
-
+    local prefix = { "[DEBUG]", "[INFO]", "[WARN]", "[ERROR]" }
+    
     -- Format String
     if type(level) == "string" then
         local specialPrefixes = {
@@ -213,17 +221,14 @@ function LLog(msg, level) -- Lazy Log = LLog
         }
         finalMsg = string.format("%s %s", specialPrefixes[level] or "[LOG]", msg)
         level = 3 -- Default Level for string prefixes
-    else
-        local prefix = { "[DEBUG]", "[INFO]", "[WARN]", "[ERROR]" }
-        finalMsg = string.format("%s %s", prefix[level] or "[LOG]", msg)
-    end
+
+    else finalMsg = string.format("%s %s", prefix[level] or "[LOG]", msg) end
 
     -- Return based on level
-    if level >= _G.LivePage.Settings.LogLevel then
-        gma.feedback(finalMsg)
-    else
-        gma.echo(finalMsg)
-    end
+    if level >= _G.LivePage.Settings.LogDisplayLevel then gma.feedback(finalMsg)
+    elseif not _G.LivePage.Settings.ForceLog then gma.echo(finalMsg) end -- Es muss ein Bessern Weg geben
+
+    if _G.LivePage.Settings.ForceLog then gma.echo(finalMsg) end
 end
 
 --------------------------------------------------------------

@@ -1,95 +1,94 @@
-# WHG_TAgP
+# WHG_TAgP - LivePage System
 
-Grand Ma2 Lua Plugins
+## GrandMA2 Lua Framework für dynamische Show-Steuerung
 
-## Prologue
+Dieses Framework ermöglicht eine intelligente, automatisierte Verwaltung von grandMA2 Shows. Es ist modular aufgebaut und verfügt über integrierte Sicherheitsmechanismen wie einen System-Watchdog.
 
-### Vorwort
+## System-Architektur & Globaler Namespace
 
-In dieses README wird vorerst die Documentation der Plugins kommen. Ich werde versuchen das es so verständlich wie möglich wird diese Plugins zu nutzen und zu modifieziern.  
-– Aeneas
+Das System nutzt den globalen Namespace `_G.LivePage`, um Daten zwischen verschiedenen Plugins auszutauschen. (Global Config)
 
-### Style Guide
+- **Core-Status**: Speichert Version, Laufzeit-Flags (`IsRunning`) und Debug-Modi.
+- **Watchdog-Config**: Konfiguration der Ausfallsicherheit.
+- **Settings**: Zentrale Steuerung von Loop-Intervallen und Log-Leveln.
+- **MacroSettings**: Verwaltung der Hardware-IDs für das Feedback.
 
-- GlobalFunction = PascalCase
-- localFunction = camelCase
-- GlobalVariables = PascalCase
-- localVariables = camelCase
-- Argument_Variables = Pascal_Snake_Case
-- Classes = PascalCase
-- Classes.Sub = camalCase/PascalCase
+### Style Guide (Naming Conventions)
 
-Class gmaDummy ausgenommen.
+- **GlobalFunction**: `PascalCase`
+- **localFunction**: `camelCase`
+- **GlobalVariables**: `PascalCase`
+- **localVariables**: `camelCase`
+- **Argument_Variables**: `Pascal_Snake_Case`
 
-## LivePage
+## LivePage Core-Module
+
+### Watchdog (System-Recovery)
+
+Ein eigenständiger Sicherheitsmechanismus, der den `MainLoop` überwacht.
+
+- **Status-Überwachung**: Prüft im Intervall (`WatchDog.Interval`), ob der `LastResponse` Zeitstempel aktuell ist.
+- **Pedantic Mode**: Frühwarnsystem, das Meldungen ausgibt, bevor die `MaxResponseTime` erreicht ist.
+- **ForceCleanUp**: Bei Neustart werden optional Programmer und Page-Reste bereinigt (`ClearAll`, `Blind Off`, etc.).
+- **Restart-Limit**: Deckelt die Neustarts (`RestartCountLimit`), um Endlosschleifen bei fatalen Code-Fehlern zu verhindern.
+
+### Global Logging (LLog)
+
+Ein intelligentes Logging-System (`Lazy Log`), das Nachrichten nach Priorität filtert.
+
+- **Log-Level (0-5)**: Von `0 (All)` bis `4 (Error)` und `5 (None)`.
+- **Special Prefixes**: Unterstützt `W` (Watchdog) und `M` (Main) für schnelles Filtern im Command Line Feedback.
+- **ForceLog**: Erzwingt die Ausgabe aller Logs im Echo-Fenster, unabhängig vom eingestellten Level.
+
+### Status Dashboard (Feedback Macro)
+
+Visualisierung des Systemzustands auf einem definierten Macro (`DisplayMacroID`):
+
+- **Format**: `(*) RUN LIVE F: 2 RST:1`
+- **Blinker (*)**: Zeigt die Aktivität des LivePageMain-Schedulers an.
+- **Farblogik**:
+  - `Grau`: Normaler Live-Betrieb.
+  - `Gelb`: Hilfe-Modus aktiv.
+  - `Orange`: Watchdog-Eingriff (Restart erfolgt).
+  - `Rot`: System gestoppt.
+
+## Funktions-Module
 
 ### Dimmer Manager
 
-#### DM Zusammenfassung
+Verwaltet Executor-Dimmer (`EGroup`) mit automatischer Rückmeldung und Fade-Berechnung.
 
-Basis Plugin/Utility für Projekt LivePage. Verwaltetet Executor Dimmer mit Hilfe von Macros und einem FadeTineFader. Nutzt ein Group aller Executor und deren Attribute.
-
-#### DM Funktionen
-
-- `ApplyValueChange(T_Exec, T_Dimmer)`: Setz `Target_Exec` auf `Target_Dimmmer` mit Fade des FadeTimeFaders.
-- `ChangeExecDimmer(T_Exec, C_Dimmer)`: Ändert `Dimmer` von `Target_Exec` um `Change_Dimmer`.
-- `FadeTime()`: Übernimmt den Aktuellen Wert des `FadeTimeFader`.
-- `EvalDimmer()`: Limitiert alle Executor Dimmerwerte auf ein Minumum bzw. Maximum von 0 bzw. 100.
-- `LabelMacro(T_Exec)`: Ändert das Label des DimmerRoot Macros auf von `Target_Exec` den `Target_Exec.Name` und Aktuellen Dimmerwert.
-- `SetPopUp(T_Exec)`: Öffnet ein PopUp für die Eingabe von einem Spezifischen Dimmer Wert für `Target_Exec`.
-- `CheckFading(T_Exec)`: Ändert die Farbe wenn der Fade Abgeschlossen ist wider auf Grün mit Hilfe des Timer Schedulers.
-- `ExecTest()`: Testet ob die Objekte in EGroup in GMA vorhanden sind.
+- **ApplyValueChange**: Setzt Dimmer-Werte mit dynamischer FadeTime-Abfrage.
+- **CheckFading**: Überwacht den `isFading` Status eines Executors und ändert die Macro-Farbe (`Grün` = Fertig, `Rot` = Aktiv).
+- **EvalDimmer**: Hard-Limitierung aller Werte zwischen 0 und 100%.
+- **SetPopUp**: Ermöglicht manuelle Werteingabe über ein Konsole-Popup.
 
 ### Macro Interface
 
-#### MI Zusammenfassung
+Dynamische Verwaltung der Macro-Oberfläche basierend auf der `MacroConfig.lua`.
 
-Basis Plugin/Utility für Projekt LivePage. Verwaltetet die Macros der LivePage mit Hilfe der Macro Config.
+- **ConvertMacroAddr**: Berechnet die Ziel-ID aus Koordinaten (X:Y) basierend auf einer `MacroRoot`.
+- **SelectPage**: Schaltet zwischen verschiedenen Layouts (z.B. "Spot", "Wash") um.
+- **ApplyMacroConfig**: Generiert Macros inklusive Multi-Line Commands und Wait-Times.
+- **SmartPress**: Erkennt Single-, Double- und Long-Press (0.5s) Eingaben für erweiterte Button-Funktionen.
+- **RadioSelect / CycleEffect**: Funktionen zur Erstellung von Radio-Buttons oder Befehls-Zyklen.
 
-#### MI Funktionen
+## Development & Testing
 
-- `ConvertMacroAddr(Macro_Addr)`: Wandelt eine `MacroAddresse` im Format X:Y und ein `MacroRoot` in eine Macro ID um.
-- `SelectPage(PageName)`: Context Switcher für die `ApplyMacroConfig` Funktion.
-- `ApplyMacroConfig(action, macroId)`: Lädt ein Index einer Macro Config. (Unterstützt MultiLineCmd und MultiLineWait inkl GO)
-- Help Funktionen: `ToggleHelp`,`CheckHelp(id)`,`ShowHelp(id)` optimiern die Einführung von Help Nachrichten in der MacroConfig
+### GmaDummy Class
 
-#### MI Config
+Simuliert die grandMA2 Lua API eine lokale Entwicklung Umgebung.
 
-Beispiel nicht aktuell siehe MacroConfig.lua für Aktueles Beispiel
-Beispiel Konfiguration:
+- **Simulierte Funktionen**: `cmd`, `echo`, `feedback`, `textinput`, `gettime`, `sleep`.
+- **Objekt-Mocking**: `show.getobj.handle` löst bekannte Namen (z.B. "Group 1") in Dummy-IDs auf.
+- **Property-Mocking**: Simuliert Konsole-Eigenschaften wie `isFading`.
 
- `MacroConfig["Spot"] = {`  
- `color = Color.cyan,`  
- `actions = {[1] = {`  
- `name = "Gobo Wheel",`  
- `cmd = "Attribute 'Gobo1' At +10",`  
- `pos = "2:7"}`  
- `} }`
+### Real-Time Scheduler (Dummy Beta)
 
-#### MI Utilty
+Der Dummy enthält eine experimentelle **Event-Loop**, um Timer-Verhalten zu simulieren:
 
-- `SmartPress(state, id)`: Triggert ein Funktion Basiernd auf der Input Art (Single-,Double-,LongPress) gibt ein Id des Button jene Funktionen weiter.
-- `RadioSelect(Select_Group,ActivId)`: Single Select Effect für einfache Identifizierung von Current Select.
-- `CycleEffect(id)`: Cycles durch Liste von Commands und passt die Farbe und Label des Macros an.
+- **Event-Loop**: Verarbeitet die `_tasks` Tabelle realitätsnah.
+- **Pcall-Protection**: Verhindert den Absturz des Test-Skripts bei Fehlern innerhalb eines Timers.
 
-## GmaDummy Class
-
-### GD Zusammenfassung
-
-Eine Simmulierung der Echten gma Classe um Entwicklung zubeschleundigen und local zu testen ohne die GMa2 Umgebung. Gibt meistens einfach die Argumente mit dem Namen der Funktion aus. (siehe unten)
-
-### GD Funktionen
-
-- cmd(text) -> GMA_CMD >> `text`
-- echo(text) -> GMA_ECHO >> `text`
-- textinput(title,default) -> GMA_INPUT_PROMPT [`title`]: Default is `default`
-- timer(func,delay,count) -> GMA_TIMER: Scheduled function `func` to run every `delay` s `count` times
-- sleep(seconds) -> "GMA_SLEEP: Waiting `seconds` s
-- gettime -> OS Time
-- gui.msgbox(title,text) -> GMA_MSGBOX [`title`]:`text`
-- gui.confirm(title,text) -> GMA_CONFIRM [`title`]:`text`
-- show.getvar(varname) -> GMA_GETVAR: Requesting $`varname`  (return dummy value 1)
-- show.setvar(varname,value) -> GMA_SETVAR: $`varname` set to `value`
-- show.getobj.handle(name) -> Wandlet Objekt Namen in GMA Handle um (*.handle("Exsample_Exec") -> 14203456).
-- show.getobj.label(handle) -> Returned den String des Labels eines Handles.
-- show.property.get(handle,prop) -> Returned den Zustand oder Wert einer Eigenschaft eines Handles.
+--
+*Entwickelt von Aeneas | Version 0.5.4*
