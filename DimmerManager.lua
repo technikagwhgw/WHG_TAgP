@@ -18,6 +18,7 @@ if not gma then require("gmaDummy") end  -- Remove in Prod
 function ApplyValueChange(T_Exec, T_Dimmer)
     local execData = EGroup[T_Exec]
     if not execData then return end
+    _G.LivePage.Settings.CurrentInterval = _G.LivePage.Settings.ActiveInterval --Mode = Speeed
 
     execData.Dimmer = T_Dimmer
     EvalDimmer()
@@ -110,40 +111,17 @@ function SetPopUp(T_Exec)
     ApplyValueChange(T_Exec, UserInput)
 end
 
--- Initialisierung Test --
-
-function ExecTest()
-    local testPassed = true
-    for key, data in pairs(EGroup) do
-        ExecState = gma.show.getobj.handle("Executor " .. data.Exec)
-        if not ExecState then
-            gma.gui.msgbox("Fehler", "Executor " .. data.Exec .. " für " .. data.Name .. " nicht gefunden!")
-            testPassed = false
-        end
-    end
-    if not gma.show.getobj.handle("Executor " .. DM.fadeTimeFaderName) then testPassed = false end
-
-    -- Ausgabe des Testergebnisses --
-    if not testPassed then
-        LLog("DIMMER MANAGER: DATA HANDLE NOT FOUND!", 4)
-        return false
-    else
-        LLog("DIMMER MANAGER: INITIALISIERUNG ERFOLGREICH", 2)
-        return true
-    end
-end
-
 -- Funktionen Test --
-if debug and not _G.LivePage.Debug.Prod then -- Remove in Prod
+if debug and not _G.LivePage.Debug.Prod and not true then -- Remove in Prod -- Vorerst Deaktiviert
     print("\n------------------------------------\n")
     print("ApplyValueChange Exec1 auf 0\n")
     ApplyValueChange("Exec1", 0)
     print("\n")
-    
+
     print("ChangeExecDimmer Exec1 um 10 erhöhen\n")
     ChangeExecDimmer("Exec2", 10)
     print("\n")
-    
+
     print("SetPopUp Exec3\n")
     SetPopUp("Exec3")
 end

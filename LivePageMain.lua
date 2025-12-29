@@ -2,7 +2,7 @@
 
 -- 1. GLOBALE REGISTRIERUNG
 _G.LivePage = { --TODO: Namespace für WatchDog und andere Module -- TODO: Debug Global local entfernen und immer mit _G umsetzen. 
-    Version = "0.6.0",
+    Version = "0.6.1",
     IsRunning = false, -- Global Running Flag
     CurrentActiveConfig = nil,
     DimmerManager = {
@@ -42,11 +42,14 @@ _G.LivePage = { --TODO: Namespace für WatchDog und andere Module -- TODO: Debug
         OverrideForceStop = false,
     },
     Settings = {
-        LoopInterval = 0.5,
         UpdateRate = 0.1,    -- Sekunden
         SuperUser = false,   -- Niemals anschalten ohen zuwissen was es macht !
         LogDisplayLevel = 2, -- 0=All Logs, 1=Debug, 2=Info, 3=Warn, 4=Error, 5=None
         ForceLog = false,    -- Druck alle Logs unabhängig vom Level in Echo (Vollständig Logs in Echo)
+        EcoInterval = 1.5,   -- Intevale für MainLoop
+        ActiveInterval = 0.5,-- 
+        LoopInterval = 0.5,  -- 
+        AutoStart = true,    -- Starte Plugin automatisch beim Laden
     },
     Debug = {
         Enabled = true,
@@ -94,20 +97,14 @@ function InitPlugin()
     -- dofile(gma.show.getvar('PATH') .. "/MacroInterface.lua")
 
     -- Validierung
-    local status, errorCollector = pcall(function() 
-        ValidateConfig()
-    end)
-    status = ExecTest() -- DimmerManager Test
-
-    if not errorCollector and status == true then
-        _G.LivePage.IsRunning = true
-        LLog("Setup erfolgreich beendet", "M")
-
-        -- Init Done
-        MainLoop()
-    else
-        gma.gui.msgbox("SETUP FEHLER", "Plugin wurde aufgrund von Fehlern gestoppt.(".. errorCollector ..")\nBitte Log überprüfen.")
+    if not SystemCheck() then
+        return
     end
+
+    -- Set Running Flag
+    _G.LivePage.IsRunning = true
+    gma.timer(WatchDog, 3, 1)
+    gma.timer(MainLoop, 1, 1)
 end
 
 -----------------------------------------------------------
@@ -120,11 +117,20 @@ function MainLoop()
         LLog("PLUGIN STOPPED", "M")
         return
     end
+    --WatchDog Ping
+    _G.LivePage.WatchDog.LastResponse = gma.gettime()
+
+    local isSystemActive = false
+    for _, active in pairs(DM.IsTrackingFade) do
+        if active then isSystemActive = true; break end
+    end
     -- Hier kommen alle Funktionen rein, die regelmäßig ausgeführt im Hintergrund laufen sollen
     UpdateStatusDisplay()
     CheckProgrammerState() -- Future Feature
 
-    _G.LivePage.WatchDog.LastResponse = gma.gettime() -- WatchDog Integration
+    if isSystemActive then _G.LivePage.Settings.CurrentInterval = _G.LivePage.Settings.ActiveInterval
+    else _G.LivePage.Settings.CurrentInterval = _G.LivePage.Settings.EcoInterval end
+
     -- Reschedule
     gma.timer(MainLoop, _G.LivePage.Settings.LoopInterval, 1)
 end
@@ -266,7 +272,71 @@ function LLog(msg, level) -- Lazy Log = LLog
     if _G.LivePage.Settings.ForceLog then gma.echo(finalMsg) end
 end
 
+-- Main System Integrity Check -- 
+function SystemCheck()
+    LLog("Initialisiere Startup-Sequence...", "M")
+    local lp = _G.LivePage
+    local errors = 0
+    local warnings = 0
+
+    -- CHECK 1: Struktur-Validierung
+    if not lp or not lp.DimmerManager or not lp.DimmerManager.ExecutorGroup then
+        LLog("CRITICAL: Namespace Struktur unvollständig!", 4)
+        return false
+    end
+
+    -- CHECK 2: Hardware-Validierung (Executoren)
+    for id, data in pairs(lp.DimmerManager.ExecutorGroup) do
+        local handle = gma.show.getobj.handle("Executor " .. data.Exec)
+        if not handle then
+            LLog("Hardware Error: Executor " .. data.Exec .. " (" .. data.Name .. ") fehlt!", 4)
+            errors = errors + 1
+        end
+
+        -- Check ob zugehöriges Macro existiert
+        local mHandle = gma.show.getobj.handle("Macro " .. data.Macro)
+        if not mHandle then
+            LLog("Config Warning: Macro " .. data.Macro .. " für " .. data.Name .. " nicht vorhanden.", 3)
+            warnings = warnings + 1
+        end
+    end
+
+    -- CHECK 3.1: FadeTime Fader
+    if not gma.show.getobj.handle("Executor " .. lp.DimmerManager.fadeTimeFaderName) then
+        LLog("Warning: FadeTime Fader nicht gefunden. Nutze Default: " .. lp.DimmerManager.fadeTimeDefault .. "s", 3)
+        warnings = warnings + 1
+    end
+
+    -- CHECK 3.2: Status Display Macro
+    if not gma.show.getobj.handle("Macro " .. lp.MacroSettings.DisplayMacroID) then
+        LLog("Warning: Status-Display Macro " .. lp.MacroSettings.DisplayMacroID .. " fehlt!", 3)
+        warnings = warnings + 1
+    end
+
+    -- CHECK 4: MacroConfig Validierung
+    if _G.MacroConfig then
+        for pageName, pageData in pairs(_G.MacroConfig) do
+            if not pageData.actions or #pageData.actions == 0 then
+                LLog("Config: Seite '" .. pageName .. "' ist leer.", 3)
+                warnings = warnings + 1
+            end
+        end
+    else
+        LLog("Error: MacroConfig.lua wurde nicht geladen!", 4)
+        errors = errors + 1
+    end
+
+    -- AUSWERTUNG --
+    if errors > 0 then
+        gma.gui.msgbox("Startup Failed", errors .. " kritische Fehler gefunden! Siehe Log.")
+        return false
+    end
+
+    LLog("Startup-Check erfolgreich: " .. warnings .. " Warnungen ignoriert.", "M")
+    return true
+end
+
 --------------------------------------------------------------
 -- Plugin-Start beim Laden
-
-InitPlugin()
+if _G.LivePage.Settings.AutoStart then InitPlugin()
+else LLog("LivePage AutoStart deaktiviert. MainPlugin -> InitPlugin", "M") end

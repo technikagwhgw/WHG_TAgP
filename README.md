@@ -58,16 +58,33 @@ Visualisierung des Systemzustands auf einem definierten Macro (`DisplayMacroID`)
   - `Orange`: Watchdog-Eingriff (Restart erfolgt).
   - `Rot`: System gestoppt.
 
+#### Performance-Schaltung (Eco-Mode)
+
+Das System steuert die CPU-Last der Konsole nun dynamisch über zwei Intervalle:
+
+- **ActiveInterval (0.5s)**: Hohe Präzision, wenn Fader laufen oder User-Interaktionen stattfinden.
+- **EcoInterval (1.5s)**: Stromsparender Modus im Leerlauf zur Entlastung der NPU/CPU.
+- **Trigger**: Jede Dimmer-Änderung oder aktive Fades schalten das System sofort in den High-Speed-Modus.
+
+#### Smart Startup-Sequence (`SystemCheck`)
+
+Ein zentraler Validierungs-Check vor dem Systemstart ersetzt die alten Einzelfunktionen (`ExecTest`, `ValidateConfig`).
+
+- **Hardware-Check**: Prüft die Existenz aller hinterlegten Executoren und des Fade-Time-Faders.
+- **Macro-Validierung**: Verifiziert, dass alle Steuer-Macros und das Status-Display vorhanden sind.
+- **Config-Check**: Scannt die `MacroConfig.lua` auf Syntaxfehler oder leere Seiten (`#pageData.actions == 0`).
+
 ## Funktions-Module
 
 ### Dimmer Manager
 
-Verwaltet Executor-Dimmer (`EGroup`) mit automatischer Rückmeldung und Fade-Berechnung.
+#### DM Funktionen
 
-- **ApplyValueChange**: Setzt Dimmer-Werte mit dynamischer FadeTime-Abfrage.
-- **CheckFading**: Überwacht den `isFading` Status eines Executors und ändert die Macro-Farbe (`Grün` = Fertig, `Rot` = Aktiv).
-- **EvalDimmer**: Hard-Limitierung aller Werte zwischen 0 und 100%.
-- **SetPopUp**: Ermöglicht manuelle Werteingabe über ein Konsole-Popup.
+- `ApplyValueChange(T_Exec, T_Dimmer)`: Setzt den Ziel-Wert und triggert die Performance-Schaltung auf Aktiv. Nutzt nun einen Sicherheits-Buffer von 0.2s nach der Fadezeit für den Status-Check.
+- `FlashExecutor(T_Exec, FlashDuration)`: Blitzt einen Executor sofort auf 100% und kehrt nach Ablauf der Dauer (Default 0.5s) zum vorherigen Wert zurück. Färbt das Macro währenddessen Gold.
+- `CheckFading(T_Exec)`: Hochperformanter Status-Check via `gma.timer`. Reaktiviert sich selbstständig, falls ein Fade durch manuellen Eingriff verlängert wurde.
+- `GetFadeTime()`: Holt die aktuelle Zeit des Master-Faders (0-100% skaliert auf Sekunden).
+- `LabelMacro(T_Exec)`: Dynamische Beschriftung der Buttons (Name + aktueller Dimmerwert).
 
 ### Macro Interface
 
@@ -118,5 +135,13 @@ Dokumentations-Struktur (DOKU.txt)
 In der DOKU.txt werden die internen Module detailliert beschrieben. Jeder Abschnitt beginnt mit ###, gefolgt vom Modulnamen.
 ```
 
+> [IMPORTANT]
+> **Startup-Fehler**: Sollte das System beim Start rot leuchten oder eine MessageBox zeigen, wurde ein kritischer Hardware-Fehler gefunden (z.B. Executor gelöscht). Prüfe das Command Line Feedback für Details der `Startup-Sequence`.
+
+## Version 0.6.x Highlights
+
+- **Namespace-Refactoring**: Umstellung aller Module auf den zentralen `_G.LivePage` Namespace.
+- **Performance**: Integration von `gma.timer` anstelle von blockierenden Loops im Dimmer-Check.
+- **Reliability**: Zusammenfassung aller Startup-Tests in eine fehlertolerante `SystemCheck()` Routine.
 --
-*Entwickelt von Aeneas | Version 0.5.4*
+*Entwickelt von Aeneas | Version 0.6.1*
