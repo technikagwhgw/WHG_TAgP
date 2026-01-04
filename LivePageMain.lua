@@ -2,7 +2,7 @@
 
 -- 1. GLOBALE REGISTRIERUNG
 _G.LivePage = { --TODO: Namespace für WatchDog und andere Module -- TODO: Debug Global local entfernen und immer mit _G umsetzen. 
-    Version = "0.6.2",
+    Version = "0.6.3",
     IsRunning = false, -- Global Running Flag
     CurrentActiveConfig = nil,
     DimmerManager = {
@@ -50,6 +50,7 @@ _G.LivePage = { --TODO: Namespace für WatchDog und andere Module -- TODO: Debug
         ActiveInterval = 0.5,-- 
         LoopInterval = 0.5,  -- 
         AutoStart = true,    -- Starte Plugin automatisch beim Laden
+        GhostMode = false,   -- Simuliere gma.cmd Aufrufe (Keine Ausführung)
     },
     Debug = {
         Enabled = true,
@@ -76,6 +77,7 @@ _G.LivePage = { --TODO: Namespace für WatchDog und andere Module -- TODO: Debug
 }
 
 -- Globals --
+local lp = _G.LivePage
 local DM = _G.LivePage.DimmerManager
 local Color = _G.LivePage.Color
 
@@ -113,7 +115,7 @@ end
 -- Main --
 function MainLoop()
     if not _G.LivePage.IsRunning then 
-        gma.cmd("Off Plugin Thru") 
+        ExecCmd("Off Plugin Thru") 
         LLog("PLUGIN STOPPED", "M")
         return
     end
@@ -178,11 +180,11 @@ end -- Sorry -Aeneas
 
 function ForceCleanUp()
     if _G.LivePage.Settings.ForceCleanUpOnRestart then
-        gma.cmd("ClearAll") 
-        gma.cmd("Blind Off")
-        gma.cmd("Freeze Off")
-        gma.cmd("Go Off")
-        gma.cmd("Off Page Thru")
+        ExecCmd("ClearAll") 
+        ExecCmd("Blind Off")
+        ExecCmd("Freeze Off")
+        ExecCmd("Go Off")
+        ExecCmd("Off Page Thru")
         LLog("Force CleanUp durchgeführt !","W")
         gma.sleep(1)
     end
@@ -196,13 +198,23 @@ function KillLivePage()
 
     -- Optisches Feedback im Display
     if _G.LivePage.MacroSettings.DisplayMacroID then
-        gma.cmd('Label Macro ' .. _G.LivePage.MacroSettings.DisplayMacroID .. ' "LIVEPAGE OFF"')
-        gma.cmd('Appearance Macro ' .. _G.LivePage.MacroSettings.DisplayMacroID .. ' /color="black"')
+        ExecCmd('Label Macro ' .. _G.LivePage.MacroSettings.DisplayMacroID .. ' "LIVEPAGE OFF"')
+        ExecCmd('Appearance Macro ' .. _G.LivePage.MacroSettings.DisplayMacroID .. ' /color="black"')
     end
 end
 -----------------------------------------------------------
 -- 4. HILFSFUNKTIONEN
 -----------------------------------------------------------
+-- Wrapper für gma.cmd um GhostMode zu unterstützen --
+-- ggf. Queue System hinzufügen in Zukunft
+function ExecCmd(cmd)
+    if lp.Settings.GhostMode then
+        LLog("Skip Cmd: " .. tostring(cmd), "G")
+    else
+        gma.cmd(cmd)
+    end
+end
+
 -- Programmer State Check (Future Feature) --
 function CheckProgrammerState()
     -- Beispiel: Prüfen ob Werte im Programmer hängen
@@ -237,14 +249,14 @@ function UpdateStatusDisplay()
     local statusString = string.format("(%s) %s %s F: %d%s", 
         blinker, modeText, helpText, fadeCount, restartText)
 
-    gma.cmd('Label Macro ' .. displayMacroID .. ' "' .. statusString .. '"')
+    ExecCmd('Label Macro ' .. displayMacroID .. ' "' .. statusString .. '"')
 
     local color = Color.grey -- TODO: Color + Bedeutung Muss Überarbeitet werden
     if not lp.IsRunning then color = Color.red
     elseif lp.WatchDog.RestartCount > 0 then color = Color.orange
     elseif lp.Debug.Help then color = Color.yellow end
 
-    gma.cmd('Appearance Macro ' .. displayMacroID .. ' /color="' .. color .. '"')
+    ExecCmd('Appearance Macro ' .. displayMacroID .. ' /color="' .. color .. '"')
 end
 
 -- Global Log Function --
@@ -258,7 +270,8 @@ function LLog(msg, level) -- Lazy Log = LLog
     if type(level) == "string" then
         local specialPrefixes = {
             W = "[WATCHDOG]",
-            M = "[MAIN]"
+            M = "[MAIN]",
+            G = "[GHOST]",
         }
         finalMsg = string.format("%s %s", specialPrefixes[level] or "[LOG]", msg)
         level = 3 -- Default Level for string prefixes
@@ -275,7 +288,6 @@ end
 -- Main System Integrity Check -- 
 function SystemCheck()
     LLog("Initialisiere Startup-Sequence...", "M")
-    local lp = _G.LivePage
     local errors = 0
     local warnings = 0
 

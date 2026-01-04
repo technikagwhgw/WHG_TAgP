@@ -70,19 +70,16 @@ end
 
 function UpdateMacroLabels(pageName)
     local pageData = MacroConfig[pageName]
-    if not pageData or not pageData.actions then 
-        LLog("UpdateLabels: Seite nicht gefunden oder leer", 3)
-        return 
-    end
+    if not pageData then LLog("Page '"..pageName.."' nicht gefunden", 3) return end
 
     for i = 0, MS.macroPageSize - 1 do
-        gma.cmd(string.format("Label Macro %d \"--\"", MS.macroRoot + i))
+        ExecCmd(string.format("Label Macro %d \"--\"", MS.macroRoot + i))
     end
 
     for idx, action in pairs(pageData.actions) do
         local macroID = MS.macroRoot + idx - 1
         local label = tostring(action.name or "Empty")
-        gma.cmd(string.format("Label Macro %d \"%s\"", macroID, label))
+        ExecCmd(string.format("Label Macro %d \"%s\"", macroID, label))
     end
 end
 
@@ -103,7 +100,7 @@ function SyncPageUI(pageName)
         local colorActive = pageData.color or Color.green
         local finalColor = isActive and colorActive or Color.grey
 
-        gma.cmd(string.format("Appearance Macro %d /color='%s'", macroID, finalColor))
+        ExecCmd(string.format("Appearance Macro %d /color='%s'", macroID, finalColor))
     end
 end
 
@@ -133,31 +130,38 @@ function ChangePage(name)
     UpdateStatusDisplay() 
 end
 
-function ApplyMacroConfig(action, macroID)
+function ApplyMacroConfig(pageName, slotIndex)
+    local pageData = MacroConfig[pageName]
+    if not pageData then return end
+    local action = pageData.actions[slotIndex]
+    if not action then return end
+
+    local macroID = MS.macroRoot + slotIndex - 1
+
+    ExecCmd("Delete Macro 1." .. macroID .. ".*")
+
     local indexOffset = 0
-    gma.cmd("Delete Macro 1." .. macroID .. ".*")
-    
     if action.help and _G.LivePage.Debug.Help then
-        gma.cmd('Store Macro 1.' .. macroID .. '.1')
-        gma.cmd('Set Macro 1.' .. macroID .. '.1 Command "CheckHelp(' .. macroID .. ')"')
+        ExecCmd('Store Macro 1.' .. macroID .. '.1')
+        ExecCmd('Set Macro 1.' .. macroID .. '.1 Command "LUA \'LivePage.MacroInterface.CheckHelp(' .. slotIndex .. ')\'"') --Neue Command Idx Methode
         indexOffset = 1
     end
+    local content = action.content
 
-    for lineIndex, lineData in ipairs(action.content) do
-        lineIndex = lineIndex + indexOffset
-        local cmdText = ""
-        local waitTime = "0" -- Default = 0
-        
-        if type(lineData) == "table" then
-            cmdText = lineData.cmd or ""
-            waitTime = lineData.wait or "0"
-        else
-            cmdText = lineData
+    if type(content) == "string" then
+        ExecCmd('Store Macro 1.' .. macroID .. '.' .. (1 + indexOffset))
+        ExecCmd('Set Macro 1.' .. macroID .. '.' .. (1 + indexOffset) .. ' Command "' .. content .. '"')
+
+    elseif type(content) == "table" then
+        for lineIndex, lineData in ipairs(content) do
+            local actualLine = lineIndex + indexOffset
+            local cmdText = lineData.cmd or ""
+            local waitTime = lineData.wait or "0"
+            
+            ExecCmd('Store Macro 1.' .. macroID .. '.' .. actualLine)
+            ExecCmd('Set Macro 1.' .. macroID .. '.' .. actualLine .. ' Command "' .. cmdText .. '"')
+            ExecCmd('Set Macro 1.' .. macroID .. '.' .. actualLine .. ' Wait ' .. waitTime)
         end
-        gma.cmd('Store Macro 1.' .. macroID .. '.' .. lineIndex)
-        
-        gma.cmd('Set Macro 1.' .. macroID .. '.' .. lineIndex .. ' Command "' .. cmdText .. '"')
-        gma.cmd('Set Macro 1.' .. macroID .. '.' .. lineIndex .. ' Wait ' .. waitTime)
     end
 end
 
@@ -180,7 +184,7 @@ function CheckHelp(id)
     if isHelpModeActive then
         -- HILFE-MODUS:
         ShowHelp(id)
-        gma.cmd("Off Macro @") --Könnte zu Langsam sein eventuell wait = GO nutzen
+        ExecCmd("Off Macro @") --Könnte zu Langsam sein eventuell wait = GO nutzen
     end
 end
 
@@ -251,15 +255,15 @@ end -- Sorry (Aeneas)
 -- TODO: Preset Für Action nutzen ?
 
 function ShortPressAction(id)
-    gma.cmd("")
+    ExecCmd("")
 end
 
 function LongPressAction(id)
-    gma.cmd("")
+    ExecCmd("")
 end
 
 function DoublePressAction(id)
-    gma.cmd("")
+    ExecCmd("")
 end
 
 -- Radio Select --
@@ -275,13 +279,13 @@ function RadioSelect(Select_Group,ActivId)
     if not cfg then return end
 
     for i = cfg.start, cfg.stop do
-        gma.cmd("Appearance Macro " .. i .. " /color='" .. cfg.inactiveColor .. "'")
+        ExecCmd("Appearance Macro " .. i .. " /color='" .. cfg.inactiveColor .. "'")
     end
 
-    gma.cmd("Appearance Macro " .. ActivId .. " /color='" .. cfg.activeColor .. "'")
+    ExecCmd("Appearance Macro " .. ActivId .. " /color='" .. cfg.activeColor .. "'")
 
     -- Nicht Fest idee hier
-    gma.cmd("Preset 1." .. (ActivId - cfg.start + 1))
+    ExecCmd("Preset 1." .. (ActivId - cfg.start + 1))
 end
 
 -- Cycle Select --
@@ -312,9 +316,9 @@ function CycleEffect(id)
 
     local action = config[step]
 
-    gma.cmd(action.cmd)
+    ExecCmd(action.cmd)
 
     local macroID = MS.macroRoot + id - 1
-    gma.cmd('Label Macro ' .. macroID .. ' "' .. action.name .. '"')
-    gma.cmd('Appearance Macro ' .. macroID .. ' /color="' .. action.color .. '"')
+    ExecCmd('Label Macro ' .. macroID .. ' "' .. action.name .. '"')
+    ExecCmd('Appearance Macro ' .. macroID .. ' /color="' .. action.color .. '"')
 end

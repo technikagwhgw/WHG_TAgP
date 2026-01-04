@@ -25,8 +25,8 @@ function ApplyValueChange(T_Exec, T_Dimmer)
 
     local fTime = GetFadeTime()
 
-    gma.cmd(string.format("Executor %s At %s Fade %s", execData.Exec, execData.Dimmer, fTime))
-    gma.cmd(string.format("Appearance Macro %s /color='%s'", execData.Macro, Color.red))
+    ExecCmd(string.format("Executor %s At %s Fade %s", execData.Exec, execData.Dimmer, fTime))
+    ExecCmd(string.format("Appearance Macro %s /color='%s'", execData.Macro, Color.red))
 
     DM.IsTrackingFade[T_Exec] = true
     gma.timer(function() CheckFading(T_Exec) end, fTime + 0.2, 1) -- fTime + Buffer(0.2s)
@@ -42,7 +42,7 @@ function CheckFading(T_Exec)
     local isFading = gma.show.property.get(handle, 'isFading')
 
     if isFading == "No" or isFading == nil then
-        gma.cmd(string.format("Appearance Macro %s /color='%s'", execData.Macro, Color.grey))
+        ExecCmd(string.format("Appearance Macro %s /color='%s'", execData.Macro, Color.grey))
         DM.IsTrackingFade[T_Exec] = nil -- Tracking beenden
     else
         gma.timer(function() CheckFading(T_Exec) end, 0.5, 1)
@@ -83,15 +83,15 @@ function FlashExecutor(T_Exec, FlashDuration)
     local duration = FlashDuration or 0.5 -- Standard: Eine halbe Sekunde
     local originalValue = execData.Dimmer -- Merke dir den aktuellen Wert
 
-    gma.cmd(string.format("Executor %s At 100 Fade 0", execData.Exec))
-    gma.cmd(string.format("Appearance Macro %s /color='%s'", execData.Macro, Color.MAgold))
+    ExecCmd(string.format("Executor %s At 100 Fade 0", execData.Exec))
+    ExecCmd(string.format("Appearance Macro %s /color='%s'", execData.Macro, Color.MAgold))
 
     gma.timer(function()    
-        gma.cmd(string.format("Executor %s At %s Fade 0.2", execData.Exec, originalValue))
+        ExecCmd(string.format("Executor %s At %s Fade 0.2", execData.Exec, originalValue))
 
         local endColor = Color.grey
         if DM.IsTrackingFade[T_Exec] then endColor = Color.red end
-        gma.cmd(string.format("Appearance Macro %s /color='%s'", execData.Macro, endColor))
+        ExecCmd(string.format("Appearance Macro %s /color='%s'", execData.Macro, endColor))
 
         LLog("Flash beendet für: " .. execData.Name, 1)
     end, duration, 1)
@@ -103,7 +103,7 @@ function LabelMacro(T_Exec)
     Macro = EGroup[T_Exec].Macro
     Dimmer = EGroup[T_Exec].Dimmer
     Label = EGroup[T_Exec].Name .. "-" .. Dimmer
-    gma.cmd("Label Macro " .. Macro .. " " .. Label)
+    ExecCmd("Label Macro " .. Macro .. " " .. Label)
 end
 
 function SetPopUp(T_Exec)
