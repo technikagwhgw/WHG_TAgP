@@ -160,4 +160,4 @@ In der DOKU.txt werden die internen Module detailliert beschrieben. Jeder Abschn
 - **Safe Execution**: Vollständige Trennung von Logik und Daten zur Vermeidung von Typ-Fehlern (`string|table` Fix).
 
 --
-*Entwickelt von Aeneas | Version 0.6.2*
+*Entwickelt von Aeneas | Version 0.6.4*

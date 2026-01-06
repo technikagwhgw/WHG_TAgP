@@ -1,10 +1,13 @@
 -- Macro LivePage Interface --
 -- Verwaltet die Macros für die LivePage
 
--- Globals --
+-- Vars --
 local debug = _G.LivePage.Debug.Enabled
 local MS = _G.LivePage.MacroSettings
 local Color = _G.LivePage.Color
+-- Functions
+local ExecCmd = _G.LivePage.ExecCmd
+local LLog = _G.LivePage.LLog
 
 -- Macro Config --
 -- Paste MacroConfig here ...

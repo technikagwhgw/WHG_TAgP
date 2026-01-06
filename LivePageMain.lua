@@ -2,7 +2,7 @@
 
 -- 1. GLOBALE REGISTRIERUNG
 _G.LivePage = { --TODO: Namespace für WatchDog und andere Module -- TODO: Debug Global local entfernen und immer mit _G umsetzen. 
-    Version = "0.6.3",
+    Version = "0.6.4",
     IsRunning = false, -- Global Running Flag
     CurrentActiveConfig = nil,
     DimmerManager = {
@@ -347,6 +347,12 @@ function SystemCheck()
     LLog("Startup-Check erfolgreich: " .. warnings .. " Warnungen ignoriert.", "M")
     return true
 end
+
+-- Exporte --
+_G.LivePage.ExecCmd = ExecCmd
+_G.LivePage.LLog = LLog
+_G.LivePage.InitPlugin = InitPlugin
+--_G.LivePage.ForceCleanUp = ForceCleanUp -- NICHT JETZT DU NICHT BRAUCHST
 
 --------------------------------------------------------------
 -- Plugin-Start beim Laden

@@ -1,11 +1,14 @@
 -- DimmerManager --
 -- Manages LivePage Dimmer
 
--- Globals --
+-- Vars --
 local debug = _G.LivePage.Debug.Enabled
 local DM = _G.LivePage.DimmerManager
 local EGroup = DM.ExecutorGroup
 local Color = _G.LivePage.Color
+-- Functions
+local ExecCmd = _G.LivePage.ExecCmd
+local LLog = _G.LivePage.LLog
 
 -- Lädt gmaDummy, falls nicht in grandMA2 Umgebung
 if not gma then require("gmaDummy") end  -- Remove in Prod
