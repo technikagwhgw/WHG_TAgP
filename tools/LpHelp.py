@@ -9,7 +9,10 @@ import re
 import os
 
 def load_prosa_docs(file_path):
-    """Liest die Prosa-Dokumentation aus einer Textdatei ein."""
+    if not os.path.exists(file_path):
+        base_dir = os.path.dirname(__file__)
+        file_path = os.path.join(base_dir, "..", "DOKU.txt") # Pfad korrektur
+
     if not os.path.exists(file_path):
         print(f"[!] Prosa-Dokumentation '{file_path}' nicht gefunden.")
         return []
@@ -17,21 +20,22 @@ def load_prosa_docs(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
     
-    # Trennt die Themen anhand von '###'
-    sections = re.split(r'###\s*', content)
+    # Trennt anhand von ### und entfernt leere Ergebnisse
+    sections = [s.strip() for s in re.split(r'###\s*', content) if s.strip()]
     prosa_entries = []
     
     for section in sections:
-        if section.strip():
-            lines = section.strip().split('\n', 1)
-            title = lines[0].strip()
-            body = lines[1].strip() if len(lines) > 1 else ""
-            prosa_entries.append({
-                "type": "INTERN",
-                "page": "SYSTEM",
-                "name": title,
-                "help": body
-            })
+        # Trenne den Titel (erste Zeile) vom Rest des Textes
+        parts = section.split('\n', 1)
+        title = parts[0].strip()
+        body = parts[1].strip() if len(parts) > 1 else ""
+        
+        prosa_entries.append({
+            "type": "INTERN",
+            "page": "SYSTEM",
+            "name": title,
+            "help": body
+        })
     return prosa_entries
 
 def parse_lua_config(file_path):
@@ -79,10 +83,24 @@ def search_all(entries, keyword):
     print(f"\n{'='*60}")
 
 def main():
-    # Daten aus beiden Quellen laden
-    all_data = parse_lua_config("MacroConfig.lua") + load_prosa_docs("DOKU.txt")
+    # Pfad relativ zum Speicherort des Skripts ermitteln
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     
-    print("LivePage AG-Zentrale: Suche nach Macros oder System-Funktionen.")
+    # Gehe einen Ordner hoch, falls das Skript im /tools/ Ordner liegt
+    root_dir = os.path.join(base_dir) 
+    
+    doku_path = os.path.join(root_dir, "DOKU.txt")
+    #config_path = os.path.join(root_dir, "MacroConfig.lua")
+
+    # Daten laden
+    prosa_data = load_prosa_docs(doku_path)
+    #lua_data = parse_lua_config(config_path) - Zukunft fix 
+    all_data = prosa_data #+ lua_data
+
+    if not all_data:
+        print("[!] Keine Daten geladen. Prüfe Pfade!")
+        return
+    
     while True:
         user_input = input("\nSuche (oder 'exit'): ").strip()
         if user_input.lower() == 'exit': break

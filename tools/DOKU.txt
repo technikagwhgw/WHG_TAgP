@@ -1,199 +1,44 @@
-Disclaimer: Diese Doku Prosa Texte sind aktuell Placeholder Haluzination von KI was der Inhalt des Plugins ist.
-Muss ggf Manuel Geschrieben werden -Aeneas
+### LivePage System Architektur
+Das LivePage System fungiert als Betriebssystem innerhalb der grandMA2 Show. Es bricht die statische Natur von Executor-Buttons auf und ersetzt sie durch dynamische Oberflächen. Es nutzt den globalen Speicher _G.LivePage als "Single Source of Truth", auf den alle Module (Dimmer, Macros, Watchdog) zugreifen.
 
-### System-Kern (LivePageMain)
-Das Herzstück des Projekts. Es sorgt dafür, dass alle anderen Module geladen werden und reibungslos zusammenarbeiten.
-Wichtig: Wenn du Änderungen am Code vornimmst, muss das System über das entsprechende Macro am Pult neu gestartet werden, damit die Änderungen aktiv werden.
+### LivePageMain InitPlugin
+Dies ist der Zündschlüssel des Frameworks. Sobald das Plugin geladen wird, führt es zuerst einen SystemCheck durch. Nur wenn die Hardware-Validierung erfolgreich ist, werden die Timer für den MainLoop und den WatchDog gestartet und das globale Flag IsRunning gesetzt.
 
-### Watchdog-System
-Der Watchdog ist eine Sicherheitsfunktion. Er überwacht ständig, ob das Programm noch reagiert. 
-- Logik: Er zählt im Hintergrund hoch. Wenn der Zähler einen kritischen Wert erreicht (Timeout), geht das System davon aus, dass die Software abgestürzt ist.
-- Anzeige: Im Status-Macro (420) wird angezeigt, ob der Watchdog aktiv ist.
+### LivePageMain MainLoop
+Der MainLoop ist ein rekursiver Timer und der Herzschlag des Systems. Er nutzt dynamische Intervalle: Eco-Mode (1.5s) im Leerlauf und Active-Mode (0.5s) bei Aktionen. Er sendet Lebenszeichen an den Watchdog und aktualisiert das Status-Dashboard.
 
-### Dimmer Manager
-Dieses Modul kümmert sich um die sanften Übergänge (Fading) deiner Scheinwerfer.
-- Funktion: Wenn du einen Dimmer-Wert änderst, berechnet der Manager die Zwischenschritte. 
-- Feedback: Er sendet Befehle an das Pult, um die Farben der Macros zu ändern:
-  * ROT: Der Dimmer fadet gerade noch (Aktion läuft).
-  * GRÜN: Der Zielwert wurde erreicht (Aktion fertig).
+### Watchdog System Recovery
+Ein isolierter Sicherheitsmechanismus. Er vergleicht die Zeit seit der letzten MainLoop-Meldung. Überschreitet die Stille 14 Sekunden (MaxResponseTime), erzwingt er einen Neustart des Plugins und bereinigt optional hängende Prozesse (ForceCleanUp).
 
-### Macro Interface & Config
-Dies ist die Brücke zwischen deinem Code und den physischen Tasten der grandMA2.
-- MacroConfig: Hier werden alle Buttons definiert (Name, Position, Hilfe-Text).
-- Interface: Es generiert automatisch die Macros im Pool der Konsole. Du musst also nicht jedes Macro einzeln von Hand am Pult programmieren.
+### LivePageMain LLog
+Das Lazy-Logging-System verhindert das Fluten der Command-Line. Nachrichten werden nach Level gefiltert (1=Debug bis 4=Error). Das System nutzt Prefixing (z.B. [WATCHDOG]), um die Herkunft von Fehlern sofort sichtbar zu machen.
 
-### LLog (Logging System)
-Das Logging-System schreibt alle wichtigen Ereignisse in das System-Log der Konsole.
-- Nutzen: Wenn etwas nicht funktioniert (z.B. ein Syntaxfehler in der Config), schau in das Log. LLog markiert Fehler deutlich, damit wir sie in der AG schnell finden können.
+### LivePageMain SystemCheck
+Eine Validierungs-Routine vor dem Start. Sie prüft, ob notwendige Hardware (Executoren 100.101-100.103), die MacroConfig und das Status-Macro 420 vorhanden sind. Kritische Fehler verhindern den Start, um Abstürze zu vermeiden.
 
-### Cycle Effects
-Ein spezielles Modul für automatisierte Abläufe.
-- Arbeitsweise: Es ermöglicht es, Effekte oder Farbdurchläufe in Schleifen (Cycles) abzuspielen.
-- Steuerung: Die Geschwindigkeit und die Art des Cycles werden über die Macro-Eingaben gesteuert, die in der MacroConfig hinterlegt sind.
+### DimmerManager ApplyValueChange
+Die zentrale Schnittstelle für Licht-Übergänge. Sie validiert den neuen Wert, holt die aktuelle Fade-Zeit vom Hardware-Fader (100.106) und sendet den Befehl an die Konsole. Das Macro wird sofort ROT gefärbt, um den laufenden Prozess anzuzeigen.
 
-### gmaDummy (Entwicklungs-Tool)
-Dieses Modul wird nur benötigt, wenn wir den Code am PC (ohne echte Konsole) testen wollen.
-- Funktion: Es simuliert die Befehle der grandMA2 (wie gma.echo oder gma.feedback), damit das Programm nicht abstürzt, wenn keine Konsole angeschlossen ist.
+### DimmerManager CheckFading
+Diese Funktion sorgt für das Echtzeit-Feedback. Sie fragt den physikalischen Status 'isFading' des Executors ab. Solange der Dimmer fährt, bleibt das Macro rot. Ist der Fade beendet, wird es wieder grau oder grün.
 
-### Status Dashboard (Macro 420)
-Dies ist deine zentrale Informationsquelle während der Show.
-- Inhalt: Es zeigt an, welche Module geladen sind, wie viele Restarts der Watchdog durchgeführt hat und ob die Kommunikation zum Pult steht.
-- Fehlerbehebung: Wenn die Anzeige im Dashboard rot leuchtet oder "Disconnected" zeigt, stimmt etwas mit der Verbindung oder dem Lua-Laufzeitstatus nicht.
+### DimmerManager FlashExecutor
+Erzeugt einen Blinder-Effekt ("Flash"). Der Executor wird sofort (Fade 0) auf 100% gesetzt und das Macro leuchtet MAgold. Nach Ablauf der FlashDuration kehrt der Executor automatisch zum vorherigen Helligkeitswert zurück.
 
-### DimmerManager: Funktionsweise
-Der DimmerManager ist für die intelligente Steuerung von Lichtstärken (Dimmern) verantwortlich. Er sorgt dafür, dass Werte nicht einfach "springen", sondern weich überblenden, und gibt dem Operator visuelles Feedback über den Status der Lampen.
+### MacroInterface ChangePage
+Ermöglicht dynamische Seitenwechsel auf den Hardware-Tasten. Die Funktion lädt eine neue Konfiguration, beschriftet die Tasten neu und synchronisiert sofort den Status (SyncPageUI), damit angezeigte Farben dem echten Pult-Status entsprechen.
 
-### DimmerManager: ApplyValueChange
-Dies ist die Hauptfunktion des Moduls. Sie verarbeitet neue Zielwerte für einen Scheinwerfer.
-- Logik: Wenn ein neuer Wert (0-100) empfangen wird, prüft die Funktion, ob bereits ein Fade läuft. Sie setzt den neuen Zielwert im Hintergrund und startet den Tracking-Prozess.
-- Schutz: Die Funktion nutzt 'EvalDimmer', um sicherzustellen, dass keine ungültigen Werte (z.B. Texte oder Zahlen über 100) an die Konsole gesendet werden.
+### MacroInterface SyncPageUI
+Sorgt für "Page Morphing". Wenn eine neue Seite geladen wird, prüft diese Funktion für jeden Button, ob das referenzierte Objekt (z.B. Preset 1.1) gerade im Pult aktiv ist, und färbt den Button entsprechend ein.
 
-### DimmerManager: EvalDimmer
-Eine Sicherheitsfunktion zur Validierung von Eingaben.
-- Logik: Sie wandelt Eingabewerte in Zahlen um. 
-- Ergebnis: Werte unter 0 werden auf 0 gesetzt, Werte über 100 auf 100 begrenzt. Dies verhindert Fehlermeldungen in der grandMA2-Software bei Tippfehlern.
+### MacroInterface SmartPress
+Analysiert die Dauer eines Tastendrucks. Ein kurzer Klick (< 0.3s) löst die Standard-Aktion aus, ein langes Halten (> 0.5s) kann alternative Befehle (z.B. Reset oder Help) starten.
 
-### DimmerManager: IsTrackingFade
-Dies ist eine Überwachungsliste (Tabelle), in der alle Scheinwerfer stehen, die sich gerade in einer Helligkeitsänderung befinden.
-- Status ROT: Solange ein Gerät in dieser Liste aktiv ist, leuchtet das zugehörige Macro am Pult ROT. Das signalisiert dem Operator: "Warte, der Fade läuft noch."
+### MacroInterface CycleEffect
+Erstellt einen rotierenden Button ("Toggle"). Mit jedem Klick wird der nächste Befehl aus einer definierten Liste ausgeführt und das Label sowie die Farbe des Buttons aktualisiert (z.B. Slow -> Fast -> Off).
 
-### DimmerManager: LabelMacro
-Diese Funktion aktualisiert die Beschriftung der Buttons auf der Konsole in Echtzeit.
-- Funktion: Sie nimmt den Namen des Geräts (z.B. "PAR6") und hängt den aktuellen Dimmer-Wert an (z.B. "PAR6-80"). So sieht man auf dem Screen sofort, wie hell eine Lampe eingestellt ist, ohne in das Fixture-Sheet schauen zu müssen.
+### MacroInterface RadioSelect
+Simuliert eine Auswahl-Gruppe (Radio Buttons). Wählt man ein Macro dieser Gruppe, werden alle anderen Macros im definierten Bereich automatisch deaktiviert (grau) und nur das gewählte wird aktiv (grün).
 
-### DimmerManager: SetPopUp
-Ermöglicht eine schnelle manuelle Steuerung über die Benutzeroberfläche.
-- Bedienung: Beim Aufruf öffnet sich am Pult ein Eingabefenster ("textinput"). 
-- Nutzen: Der Operator kann direkt einen Prozentwert tippen, der dann sofort über 'ApplyValueChange' verarbeitet wird.
-
-### DimmerManager: ExecTest (Initialisierung)
-Ein Selbstdiagnose-Tool, das beim Systemstart ausgeführt wird.
-- Prüfung: Das Skript scannt alle in der 'EGroup' definierten Executor-Nummern (z.B. 100.101).
-- Fehlerbehandlung: Wenn ein Executor im Pult fehlt oder falsch benannt ist, gibt das System eine Fehlermeldung via LLog aus und verhindert so, dass das Skript während der Show abstürzt.
-
-### DimmerManager: Color Feedback
-Das Modul steuert die visuelle Rückmeldung über Farben:
-- GRÜN: Gerät hat den Zielwert erreicht.
-- ROT: Gerät fadet aktuell (Wert ändert sich noch).
-- GRAU: Initialzustand oder Fehler.
-
-### gmaDummy: Sinn und Zweck
-Der gmaDummy ist ein "Simulator". Da der normale Lua-Code Befehle nutzt, die nur die grandMA2 versteht (die gma-API), würde das Programm auf einem normalen PC sofort abstürzen. Der Dummy fängt diese Befehle ab und gibt sie stattdessen lesbar im Terminal aus.
-
-### gma.cmd (Befehlssimulation)
-Dies ist die wichtigste Funktion des Dummys.
-- Logik: Anstatt einen echten Licht-Befehl an die Hardware zu senden, gibt der Dummy den Text mit einem vorangestellten "CMD >>" in der Konsole aus.
-- Nutzen: Du kannst prüfen, ob deine Programmierlogik die richtigen Befehlsketten (z.B. "Go Effect 1") generiert.
-
-### gma.echo & gma.feedback
-Diese Funktionen simulieren die Textausgabe der Konsole.
-- gma.echo: Erscheint im Terminal als "ECHO: ...". Dies entspricht dem normalen Command-Line Feedback.
-- gma.feedback: Erscheint als "FEED: ...". In der echten Konsole wäre dies farbiger Text im Feedback-Fenster.
-
-### gma.textinput (Eingabe-Simulator)
-Simuliert die Pop-up-Fenster der Konsole, in denen man Werte tippen kann.
-- Logik: Da ein Terminal kein Grafikfenster öffnen kann, gibt der Dummy den Standardwert (Default) zurück, der im Skript hinterlegt ist.
-- Nutzen: So läuft das Skript weiter, ohne auf eine Benutzerinteraktion zu warten, die am PC ohne GUI nicht möglich wäre.
-
-### gma.show.getobj.handle (Objekt-Mocking)
-Diese Funktion ist entscheidend für den 'ExecTest' im DimmerManager.
-- Logik: In der Konsole prüft dieser Befehl, ob ein Executor oder eine Gruppe existiert. Der Dummy enthält eine Liste ('existing_objects') mit Test-IDs.
-- Beispiel: Wenn dein Code nach "Executor 100.101" fragt, antwortet der Dummy mit der ID "10101". Fragt der Code nach einem unbekannten Objekt, gibt der Dummy "nil" (nicht gefunden) zurück.
-
-### gma.show.property.get (Eigenschafts-Abfrage)
-Simuliert das Auslesen von Statuswerten.
-- Beispiel: Wenn der DimmerManager fragt, ob ein Executor gerade noch fadet ("isFading"), antwortet der Dummy standardmäßig mit "No". Damit kann die Logik des Skripts am PC einen fertigen Fade simulieren.
-
-### gma.timer (Zeitsteuerung)
-Simuliert das Planen von Aufgaben in der Zukunft.
-- Logik: Der Dummy gibt im Terminal aus, welche Funktion in welchem Intervall ausgeführt werden soll. 
-- Hinweis: In der aktuellen Version dient dies primär der Information, um die Taktrate des MainLoops am PC zu überwachen.
-
-### Debug-Modus & require("gmaDummy")
-In deinen anderen Dateien (wie DimmerManager.lua) siehst du am Anfang oft: `if not gma then require("gmaDummy") end`. 
-- Bedeutung: Das System erkennt automatisch, ob es auf einer Konsole läuft. Wenn nicht, wird der Simulator automatisch gestartet. Für die Veröffentlichung ("Prod") sollte diese Zeile entfernt oder deaktiviert werden.
-
-### LivePageMain: Das Betriebssystem des Frameworks
-LivePageMain ist die zentrale Steuereinheit. Sie registriert den globalen Namespace '_G.LivePage', verwaltet die System-Einstellungen und beherbergt den Sicherheits-Watchdog. Ohne diese Datei können die anderen Module nicht auf gemeinsame Daten zugreifen.
-
-### Funktion: Globale Registrierung (_G.LivePage)
-Dies ist keine Funktion im klassischen Sinne, sondern die Initialisierung des System-Gedächtnisses.
-- Nutzen: Hier werden Versionsnummern, Debug-Modi und Watchdog-Parameter gespeichert.
-- Wichtig: Die Variable 'IsRunning' zeigt allen anderen Modulen an, ob das System gerade aktiv ist oder im Standby.
-
-### Funktion: MainLoop (Die Herzschlag-Schleife)
-Der MainLoop ist die unendliche Schleife, die das System am Leben erhält.
-- Intervall: Standardmäßig läuft sie alle 0,5 Sekunden (einstellbar via Settings.LoopInterval).
-- Aufgabe: Sie triggert in jedem Durchlauf den Watchdog und sorgt dafür, dass zeitgesteuerte Aufgaben (wie Dimmer-Fades) abgearbeitet werden.
-
-### Funktion: WatchDog (Überwachungs-System)
-Der Watchdog verhindert, dass das System bei einem Lua-Fehler unbemerkt stehen bleibt.
-- LastResponse: Bei jedem erfolgreichen Schleifendurchlauf wird ein Zeitstempel gesetzt.
-- MaxResponseTime: Wenn 14 Sekunden lang keine Reaktion erfolgt, erkennt der Watchdog einen "Hang" (Absturz) und leitet einen automatischen Neustart ein.
-- Pedantic Mode: Ein Frühwarnsystem, das bereits vor dem harten Timeout Warnungen im Log ausgibt.
-
-### Funktion: LLog (Lazy Log - Das Meldesystem)
-LLog ist die zentrale Funktion für alle Textausgaben.
-- Level-System: Unterstützt verschiedene Stufen: 1=Debug, 2=Info, 3=Warn, 4=Error.
-- Filter: Über 'Settings.LogDisplayLevel' können Mitschüler einstellen, wie viele Infos sie sehen wollen (z.B. nur Fehler oder alles).
-- Präfixe: Nutzt spezielle Kennungen wie [WATCHDOG] oder [MAIN], damit man im Command Line Feedback der MA sofort sieht, welches Modul gerade eine Nachricht sendet.
-
-### Funktion: UpdateStatusDisplay (Macro 420)
-Diese Funktion sorgt für das visuelle Dashboard auf der Konsole.
-- Feedback: Sie schreibt den aktuellen Status (Version, Laufzeit, Fehleranzahl) direkt auf das Macro 420.
-- Farbsteuerung: 
-  * GRAU: System bereit / Standby.
-  * GRÜN: System läuft einwandfrei.
-  * ORANGE: System läuft, aber der Watchdog musste bereits einen Neustart durchführen.
-  * ROT: System gestoppt oder schwerer Fehler.
-
-### Funktion: ForceCleanUp (Notfall-Reinigung)
-Wird beim Start oder nach einem Absturz aufgerufen, wenn 'ForceCleanUpOnRestart' aktiv ist.
-- Aufgabe: Sie sendet Befehle wie "Blind Off", "ClearAll" und "Off SpecialMaster 3.x" an die Konsole, um sicherzustellen, dass keine alten Reste die Show stören.
-
-### Macro-System: Übersicht
-Das Macro-System ist das "Gesicht" deines Projekts. Es wandelt deine Lua-Konfigurationen automatisch in drückbare Buttons (Macros) auf der grandMA2 um. Es besteht aus einer benutzerfreundlichen Konfigurationsdatei und einer komplexen Logik, die das Layout verwaltet.
-
-### MacroConfig: Struktur der Buttons
-Hier definieren Mitschüler, was auf dem Pult erscheinen soll.
-- Seite (z.B. ["Spot"]): Gruppiert Buttons thematisch. Jede Seite kann eine eigene Farbe haben.
-- Name: Der Text, der auf dem Macro-Button steht.
-- Content: Der Befehl, der ausgeführt wird. Dies kann ein einzelner Text ("Group 1 At 100") oder eine Liste von Befehlen mit Wartezeiten ({cmd="...", wait="0.5"}) sein.
-- Pos: Die Position im Macro-Pool (Format "X:Y"). Das Skript berechnet daraus automatisch die richtige ID.
-- Help: Der Erklärungstext, der im Help-Modus oder über das Python-Skript angezeigt wird.
-
-### MacroInterface: ValidateConfig
-Bevor die Buttons erstellt werden, prüft diese Funktion die gesamte MacroConfig auf Fehler.
-- Logik: Sie scannt jede Seite und jede Aktion. Fehlen wichtige Daten wie 'name' oder 'content', gibt sie eine detaillierte Fehlermeldung via LLog aus.
-- Nutzen: Verhindert, dass das System aufgrund eines Tippfehlers in der Konfigurationsdatei abstürzt.
-
-### MacroInterface: ConvertMacroAddr
-Eine mathematische Hilfsfunktion zur Positionsberechnung.
-- Funktion: Sie wandelt Koordinaten wie "1:3" (Spalte 1, Zeile 3) basierend auf der 'macroRoot' (Standard 106) in eine absolute Macro-Nummer um.
-- Nutzen: Mitschüler müssen keine IDs auswendig lernen, sondern können in Rastern denken.
-
-### MacroInterface: ApplyMacroConfig
-Die "Baumeister"-Funktion des Systems.
-- Aufgabe: Sie löscht alte Macros an den Zielpositionen und erstellt neue. 
-- Multi-Line Support: Wenn eine Aktion mehrere Befehle hat, schreibt sie diese unter Berücksichtigung der 'wait'-Zeiten korrekt in die Macro-Zeilen.
-- Visualisierung: Sie setzt automatisch die Hintergrundfarben der Macros passend zum Seitendesign.
-
-### MacroInterface: SelectPage
-Ermöglicht das Umschalten zwischen verschiedenen Button-Layouts (z.B. von "Spot" auf "Wash").
-- Logik: Sie deaktiviert die Farben der alten Seite und hebt die neue Seite hervor.
-- Automation: Optional kann sie beim Seitenwechsel direkt Presets oder Ansichten am Pult mit umschalten.
-
-### MacroInterface: CycleEffect
-Erzeugt einen "Toggle-Button", der bei jedem Druck eine andere Aktion ausführt.
-- Funktionsweise: Ein Klick auf den Button führt Schritt 1 aus, der nächste Schritt 2, usw. Am Ende springt er wieder auf Schritt 1 zurück.
-- Feedback: Jede Stufe kann eine eigene Farbe haben (z.B. Langsam = Gelb, Schnell = Rot), damit der Operator sieht, welcher Modus gerade aktiv ist.
-
-### MacroInterface: RadioSelect
-Simuliert Radio-Buttons (nur einer kann aktiv sein).
-- Logik: Wenn ein Macro aus einer Gruppe gedrückt wird, wird es als "Aktiv" markiert (Farbe ändert sich) und alle anderen Macros in dieser Gruppe werden auf die "Inaktiv"-Farbe zurückgesetzt.
-
-### MacroInterface: SmartPress (Feature-Vorschau)
-Eine Logik zur Erkennung verschiedener Druck-Arten auf einem Macro.
-- Single Press: Normaler Befehl.
-- Double Press: Alternative Aktion (z.B. Reset).
-- Long Press: Öffnet oft ein Einstellungsmenü oder die Hilfe zu diesem Button.
+### Status Dashboard Macro 420
+Das visuelle Feedback-Instrument im Macro-Pool. Es zeigt den Systemzustand durch Farben (Rot=Fehler, Grün=OK) und Symbole (Blinker für Heartbeat, RST für Watchdog-Neustarts) an.
