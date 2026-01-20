@@ -130,7 +130,7 @@ function ChangePage(name)
     UpdateMacroLabels(name)
     SyncPageUI(name)
     LLog("Page gewechselt: " .. name, "I")
-    UpdateStatusDisplay() 
+    --UpdateStatusDisplay() 
 end
 
 function ApplyMacroConfig(pageName, slotIndex)

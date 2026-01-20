@@ -1,17 +1,17 @@
-# WHG_TAgP - LivePage System
+# WHG_TAgP - LivePage System (v0.8.0)
 
 ## GrandMA2 Lua Framework für dynamische Show-Steuerung
 
-Dieses Framework ermöglicht eine intelligente, automatisierte Verwaltung von grandMA2 Shows. Es ist modular aufgebaut und verfügt über integrierte Sicherheitsmechanismen wie einen System-Watchdog.
+Dieses Framework ermöglicht eine intelligente Verwaltung von grandMA2 Shows ohne die Ressourcenbelastung einer permanenten Hintergrundschleife (Main-Loop). Es nutzt die MA2-interne Command-Line-Engine, um zeitgesteuerte Aufgaben und Feedback-Logik effizient abzuarbeiten.
 
 ## System-Architektur & Globaler Namespace
 
-Das System nutzt den globalen Namespace `_G.LivePage`, um Daten zwischen verschiedenen Plugins auszutauschen. (Global Config)
+Das System nutzt den globalen Namespace `_G.LivePage`, um Daten konsistent über Plugins hinweg verfügbar zu machen.
 
 - **Core-Status**: Speichert Version, Laufzeit-Flags (`IsRunning`) und Debug-Modi.
-- **Watchdog-Config**: Konfiguration der Ausfallsicherheit.
-- **Settings**: Zentrale Steuerung von Loop-Intervallen und Log-Leveln.
-- **MacroSettings**: Verwaltung der Hardware-IDs für das Feedback.
+- **Settings**: Zentrale Steuerung von Log-Leveln und Sicherheitsmodi (GhostMode, SuppressMSGBox).
+- **MacroSettings**: Konfiguration der Hardware-IDs und Root-Indizes für das physische Feedback.
+- **Color-Paletten**: Zentralisierte Hex-Farbcodes für ein konsistentes UI-Design.
 
 ### Style Guide (Naming Conventions)
 
@@ -19,91 +19,48 @@ Das System nutzt den globalen Namespace `_G.LivePage`, um Daten zwischen verschi
 - **localFunction**: `camelCase`
 - **GlobalVariables**: `PascalCase`
 - **localVariables**: `camelCase`
-- **Argument_Variables**: `Pascal_Snake_Case`
-
-### Import
-
-Platziere die Plugins in den GMA Plugins Ordner.
-Führe Befehle: `Import "LivePage_Import" At Plugin 2` aus.
-Fertig.
+- **Argument_Variables**: `Snake_Case`
 
 ## LivePage Core-Module
-
-### Watchdog (System-Recovery)
-
-Ein eigenständiger Sicherheitsmechanismus, der den `MainLoop` überwacht.
-
-- **Status-Überwachung**: Prüft im Intervall (`WatchDog.Interval`), ob der `LastResponse` Zeitstempel aktuell ist.
-- **Pedantic Mode**: Frühwarnsystem, das Meldungen ausgibt, bevor die `MaxResponseTime` erreicht ist.
-- **ForceCleanUp**: Bei Neustart werden optional Programmer und Page-Reste bereinigt (`ClearAll`, `Blind Off`, etc.).
-- **Restart-Limit**: Deckelt die Neustarts (`RestartCountLimit`), um Endlosschleifen bei fatalen Code-Fehlern zu verhindern.
 
 ### Global Logging (LLog)
 
 Ein intelligentes Logging-System (`Lazy Log`), das Nachrichten nach Priorität filtert.
 
-- **Log-Level (0-5)**: Von `0 (All)` bis `4 (Error)` und `5 (None)`.
-- **Special Prefixes**: Unterstützt `W` (Watchdog) und `M` (Main) für schnelles Filtern im Command Line Feedback.
-- **ForceLog**: Erzwingt die Ausgabe aller Logs im Echo-Fenster, unabhängig vom eingestellten Level.
+- **Log-Level (0-5)**: Filtert von `0 (All)` bis `5 (None)`.
+- **Special Prefixes**: Unterstützt `M` (Main) und `G` (Ghost) für schnelles Filtern im Command Line Feedback.
+- **ForceLog**: Erzwingt die Ausgabe aller Logs im Echo-Fenster, unabhängig vom System-Level.
 
-### Status Dashboard (Feedback Macro)
+### Startup-Sequence (`SystemCheck`)
 
-Visualisierung des Systemzustands auf einem definierten Macro (`DisplayMacroID`):
+Ein zentraler Validierungs-Check ersetzt manuelle Tests und verhindert Abstürze bei fehlender Hardware.
 
-- **Format**: `(*) RUN LIVE F: 2 RST:1`
-- **Blinker (*)**: Zeigt die Aktivität des LivePageMain-Schedulers an.
-- **Farblogik**:
-  - `Grau`: Normaler Live-Betrieb.
-  - `Gelb`: Hilfe-Modus aktiv.
-  - `Orange`: Watchdog-Eingriff (Restart erfolgt).
-  - `Rot`: System gestoppt.
-
-#### Performance-Schaltung (Eco-Mode)
-
-Das System steuert die CPU-Last der Konsole nun dynamisch über zwei Intervalle:
-
-- **ActiveInterval (0.5s)**: Hohe Präzision, wenn Fader laufen oder User-Interaktionen stattfinden.
-- **EcoInterval (1.5s)**: Stromsparender Modus im Leerlauf zur Entlastung der NPU/CPU.
-- **Trigger**: Jede Dimmer-Änderung oder aktive Fades schalten das System sofort in den High-Speed-Modus.
-
-#### Smart Startup-Sequence (`SystemCheck`)
-
-Ein zentraler Validierungs-Check vor dem Systemstart ersetzt die alten Einzelfunktionen (`ExecTest`, `ValidateConfig`).
-
-- **Hardware-Check**: Prüft die Existenz aller hinterlegten Executoren und des Fade-Time-Faders.
-- **Macro-Validierung**: Verifiziert, dass alle Steuer-Macros und das Status-Display vorhanden sind.
-- **Config-Check**: Scannt die `MacroConfig.lua` auf Syntaxfehler oder leere Seiten (`#pageData.actions == 0`).
+- **Executor-Check**: Prüft die Existenz aller hinterlegten Executoren (Dimmer & Zeit-Fader).
+- **UI-Validierung**: Verifiziert Steuer-Macros und das Status-Display. (Aktuell INOP)
+- **Config-Scan**: Validiert die `MacroConfig.lua` auf Vollständigkeit und Syntax.
 
 ## Funktions-Module
 
-### Dimmer Manager
+### Dimmer Manager (Integriert)
 
-#### DM Funktionen
+Der Dimmer Manager steuert die Intensitäten der Fixtures und liefert visuelles Feedback über den aktuellen Fade-Zustand.
 
-- `ApplyValueChange(T_Exec, T_Dimmer)`: Setzt den Ziel-Wert und triggert die Performance-Schaltung auf Aktiv. Nutzt nun einen Sicherheits-Buffer von 0.2s nach der Fadezeit für den Status-Check.
-- `FlashExecutor(T_Exec, FlashDuration)`: Blitzt einen Executor sofort auf 100% und kehrt nach Ablauf der Dauer (Default 0.5s) zum vorherigen Wert zurück. Färbt das Macro währenddessen Gold.
-- `CheckFading(T_Exec)`: Hochperformanter Status-Check via `gma.timer`. Reaktiviert sich selbstständig, falls ein Fade durch manuellen Eingriff verlängert wurde.
-- `GetFadeTime()`: Holt die aktuelle Zeit des Master-Faders (0-100% skaliert auf Sekunden).
-- `LabelMacro(T_Exec)`: Dynamische Beschriftung der Buttons (Name + aktueller Dimmerwert).
+- **Ereignisbasiertes Fading**: Statt einer CPU-lastigen Loop nutzt das System den Befehl `Wait` in der MA2-Commandline. Nach Ablauf der Fade-Zeit triggert die Konsole selbstständig den Abschluss-Check im Plugin.
+- **Visual Feedback**: Macros leuchten während eines Fades **Rot** und kehren nach Abschluss (Fade + 0.2s Puffer) zu **Grau** (Idle) zurück.
+- **Dynamische Zeitberechnung**: `GetFadeTime()` liest einen definierten Fader (0-100%) aus und skaliert diesen Wert in Sekunden für den `Fade`-Befehl.
 
-### Macro Interface (UI & Page Management)
+### Macro Interface (UI-Steuerung)
 
-Das Interface-Modul steuert die physischen Macros auf der grandMA2 und verknüpft diese mit der `MacroConfig.lua`.
+Alle Funktionen für MacroInterface haben einen **Betastatus**.
 
-#### Hauptfunktionen
+Das Interface-Modul verknüpft die physischen Buttons der Konsole mit der `MacroConfig.lua`.
 
-- `ChangePage(pageName)`: Der zentrale Befehl für den Seitenwechsel. Aktualisiert automatisch Labels und triggert den UI-Sync.
-- `UpdateMacroLabels(pageName)`: Schreibt die Namen aus der Konfiguration auf die Buttons. Bereinigt automatisch ungenutzte Slots.
-- `SyncPageUI(pageName)`: Kern des Page-Morphings. Prüft für jeden Button den Status der hinterlegten `syncID` und setzt die Appearance (Farbe).
-- `IsContentActive(type, id)`: Hardware-Abfrage an die MA2. Erkennt, ob Presets "Active" im Programmer sind oder Effekte "Running" im Playback.
+- **Page-Morphing**: `ChangePage(name)` wechselt das gesamte Button-Layout, schreibt neue Labels und aktualisiert die Farben.
+- **Smart Feedback**: `SyncPageUI` prüft, ob Presets "Active" oder Effekte "Running" sind und färbt die Buttons entsprechend ein.
+- **SmartPress**: Experimentelle Erkennung von Short-, Double- und Long-Press Aktionen für erweiterte Button-Belegungen.
+- **Helper-Funktionen**: Beinhaltet `RadioSelect` (exklusive Auswahl) und `CycleEffect` (Step-by-Step Umschaltung).
 
-#### Zusatzfunktionen
-
-- **ConvertMacroAddr**: Berechnet die Ziel-ID aus Koordinaten (X:Y) basierend auf einer `MacroRoot`.
-- **SmartPress**: Erkennt Single-, Double- und Long-Press (0.5s) Eingaben für erweiterte Button-Funktionen.
-- **RadioSelect / CycleEffect**: Funktionen zur Erstellung von Radio-Buttons oder Befehls-Zyklen.
-
-#### Unterstützte Datentypen in der Config
+## Datentypen in der MacroConfig
 
 | Typ | Beschreibung | Beispiel |
 | :--- | :--- | :--- |
@@ -114,50 +71,18 @@ Das Interface-Modul steuert die physischen Macros auf der grandMA2 und verknüpf
 
 ### GmaDummy Class
 
-Simuliert die grandMA2 Lua API eine lokale Entwicklung Umgebung.
+Ermöglicht die Entwicklung in Standard-Lua-Editoren (VS Code, etc.) außerhalb der Konsole.
 
-- **Simulierte Funktionen**: `cmd`, `echo`, `feedback`, `textinput`, `gettime`, `sleep`.
-- **Objekt-Mocking**: `show.getobj.handle` löst bekannte Namen (z.B. "Group 1") in Dummy-IDs auf.
-- **Property-Mocking**: Simuliert Konsole-Eigenschaften wie `isFading`.
+- **Dummy**: Simuliert `gma.cmd`, `gma.show.getobj` und `gma.show.property`.
+- **UI-Sim**: Emuliert `textinput` und `msgbox` in der Konsole/Terminal.
 
-### Real-Time Scheduler (Dummy Beta)
+## Installation
 
-Der Dummy enthält eine experimentelle **Event-Loop**, um Timer-Verhalten zu simulieren:
+1. Dateien in den `gma2/library/plugins` Ordner kopieren.
+2. `LivePageMain.lua`, `MacroInterface.lua` und `MacroConfig.lua` via XML importieren. (Beta)
+3. Den `InitPlugin` Call ausführen oder `AutoStart` in den Settings auf `true` setzen.
 
-- **Event-Loop**: Verarbeitet die `_tasks` Tabelle realitätsnah.
-- **Pcall-Protection**: Verhindert den Absturz des Test-Skripts bei Fehlern innerhalb eines Timers.
+> [!Warnung]
+> **GhostMode**: Wenn `Settings.GhostMode = true`, werden keine Befehle an die Hardware gesendet. Ideal zum Testen von Logik-Abläufen ohne die Show zu beeinflussen.
 
-## Dokumentations- & Hilfe-System
-
-Um die Bedienung für die Technik-AG zu erleichtern, verfügt das Framework über ein zweistufiges Hilfesystem. Es kombiniert technische Daten aus der Konfiguration mit verständlichen Erklärungen zu den internen Funktionen.
-
-### LpHelp Python-Tool
-
-Das Tool `LpHelp.py` ist ein externer Helfer, der parallel zur Show oder während der Programmierung am PC genutzt werden kann.
-
-- **Single Source of Truth**: Das Skript liest direkt die `MacroConfig.lua` und die `DOKU.txt` ein. Änderungen an der Konfiguration sind sofort in der Hilfe sichtbar.
-- **Intelligente Suche**: Sucht nach Stichworten in Namen, Positionen und Hilfetexten.
-- **System-Erklärungen**: Importiert Prosa-Texte aus der `DOKU.txt`, um komplexe Logik (wie den Watchdog) verständlich zu machen.
-
-**Nutzung:**
-
-```bash
-python LpHelp.py
-Gib einfach ein Schlagwort wie "Dimmer", "Watchdog" oder "Macro" ein.
-
-Dokumentations-Struktur (DOKU.txt)
-In der DOKU.txt werden die internen Module detailliert beschrieben. Jeder Abschnitt beginnt mit ###, gefolgt vom Modulnamen.
-```
-
-> [IMPORTANT]
-> **Startup-Fehler**: Sollte das System beim Start rot leuchten oder eine MessageBox zeigen, wurde ein kritischer Hardware-Fehler gefunden (z.B. Executor gelöscht). Prüfe das Command Line Feedback für Details der `Startup-Sequence`.
-
-## Version 0.6.x Highlights
-
-- **Page-Morphing & Sync**: Dynamisches UI-Feedback. Macros zeigen durch Farben (`ActiveColor`) an, ob Presets oder Effekte in der Konsole bereits aktiv sind.
-- **Smart Startup-Sequence**: Zentraler `SystemCheck()` validiert Hardware (Executoren), Macros und die `MacroConfig.lua` vor dem Start.
-- **Dynamic Performance**: CPU-schonender "Eco-Mode" (1.5s Tick) im Leerlauf und automatischer "High-Performance" Modus (0.5s Tick) bei Aktivität.
-- **Safe Execution**: Vollständige Trennung von Logik und Daten zur Vermeidung von Typ-Fehlern (`string|table` Fix).
-
---
-*Entwickelt von Aeneas | Version 0.6.4*
+*Entwickelt von Aeneas | Version 0.8.0 | WHG Technik AG*
