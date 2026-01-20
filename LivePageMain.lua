@@ -1,10 +1,9 @@
 ----- LivePageMain.lua
 
------------------------------------------------------------
--- Globals
------------------------------------------------------------
+--#region Globals
+
 _G.LivePage = {
-    Version = "0.8.0",
+    Version = "0.8.1",
     IsRunning = false,
     DimmerManager = {
         fadeTimeFaderName = "100.106",
@@ -22,7 +21,7 @@ _G.LivePage = {
         ForceLog = false,    -- Druck alle Logs unabhängig vom Level in Echo (Vollständig Logs in Echo)
         AutoStart = false,    -- Starte Plugin automatisch beim Laden
         GhostMode = false,   -- Simuliere gma.cmd Aufrufe (Keine Ausführung)
-        SuppressMSGBox = true, -- Kein Msg PopUp Boxen mehr
+        SuppressMSGBox = false, -- Kein Msg PopUp Boxen mehr
     },
     Debug = {
         Enabled = true,
@@ -53,13 +52,13 @@ _G.LivePage = {
 -- Synonyme --
 local lp = _G.LivePage
 local DM = _G.LivePage.DimmerManager
-local debug = _G.LivePage.Debug.Enabled
+local lpS = _G.LivePage.Settings
 local EGroup = DM.ExecutorGroup
 local Color = _G.LivePage.Color
 
------------------------------------------------------------
--- GMA Function Wrapper
------------------------------------------------------------
+--#endregion
+
+--#region WrapperFunctions
 
 -- gma.feedback()/gma.echo()
 function LLog(msg, level) -- Lazy Log = LLog
@@ -102,7 +101,7 @@ end
 
 -- gma.textinput()
 function TextInput(Title, Default)
-    gma.textinput(Title, Default)
+    gma.textinput(Title, Default) -- falls in Zukunft was Anders Gemacht werden soll
 end
 
 -- Handle/Property
@@ -110,14 +109,13 @@ function GetHandle(Object) return gma.show.getobj.handle(Object) end
 function GetHandleProperty(Handle,Property) return gma.show.property.get(Handle,Property) end
 function GetProperty(Object,Property) return GetHandleProperty(GetHandle(Object),Property) end
 
+--#endregion
 
------------------------------------------------------------
--- Utility
------------------------------------------------------------
+--#region Utility
 
 function InitPlugin()
     if not SystemCheck() then return end
-    lp.IsRunning = true
+    lp.IsRunning = true -- Kann entfernt werden wenn alle depend. entfernt sind
     LLog("LivePage " .. lp.Version .. " gestartet.", "M")
 end
 
@@ -186,9 +184,55 @@ function SystemCheck()
     return true
 end
 
------------------------------------------------------------
--- DimmerManager
------------------------------------------------------------
+function StrSplit(inputstr, sep)
+    if sep == nil then
+        sep = "%s"
+    end
+    local t = {}
+    -- Pattern: Suche alles außer dem Trennzeichen
+    for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
+        table.insert(t, str)
+    end
+    return t -- Returned Tabell mit split _,str (ipairs)
+end
+
+function PluginDo(Param)
+    local sep = "--"
+    local operations = StrSplit(Param,sep)
+    --Functions
+    local function Start() InitPlugin() end
+    local function GhostModeToggle() lpS.GhostMode = not lpS.GhostMode end
+    local function SupMSGBoxToggle() lpS.SuppressMSGBox = not lpS.SuppressMSGBox end
+    local function AutoStartToggle() lpS.AutoStart = not lpS.AutoStart end
+    local function Help() LLog("Seperiere mit ".. sep .." um mehrer oder eine Operations auszuführen (für Operations List ".. sep .. "HelpList)",2) end
+    --[[local function HelpList() -- HelpList == INOP
+        for OpName, _ in pairs(operations) do
+            LLog(OpName)
+        end
+    end ]]--
+
+    local ActionFunctions = {
+        ["S"] = Start,
+        ["START"] = Start,
+        ["GHOSTMODE"] = GhostModeToggle,
+        ["SUPMSGBOX"] = SupMSGBoxToggle,
+        ["AUTOSTART"] = AutoStartToggle,
+        ["HELP"] = Help,
+        ["HELPLIST"] = HelpList,
+    }
+    for _, Iop in ipairs(operations) do
+        local op = Iop:gsub("%s+", ""):upper()
+        if ActionFunctions[op] then
+            ActionFunctions[op]()
+        else
+            gma.echo("Action " .. op .."nicht gefunden")
+        end
+    end
+end
+
+--#endregion
+
+--#region DimmerManager
 
 -- Dimmer Executor Functions --
 function ApplyDimmerValueChange(Target_Exec, Target_Dimmer)
@@ -239,7 +283,7 @@ function EvalSingleDimmer(Target_Exec)
 end
 
 function EvalDimmer()
-    for key, data in pairs(EGroup) do
+    for key, _ in pairs(EGroup) do
         EvalSingleDimmer(key)
     end
 end
@@ -261,5 +305,8 @@ function SetPopUp(T_Exec)
     ApplyDimmerValueChange(T_Exec, UserInput)
 end
 
+--#endregion
+
 if _G.LivePage.Settings.AutoStart then InitPlugin()
 else LLog("LivePage AutoStart deaktiviert. MainPlugin -> InitPlugin", "M") end
+return
