@@ -37,7 +37,7 @@ _G.LivePage = {
         macroPageSize = 15,
         DisplayMacroID = 42, -- Status Anzeige Macro ID (placeholder)
     },
-    Color = {
+    AppearanceColor = {
         red    = "#FF0000",
         green  = "#00FF00",
         blue   = "#0000FF",
@@ -54,7 +54,7 @@ local lp = _G.LivePage
 local DM = _G.LivePage.DimmerManager
 local lpS = _G.LivePage.Settings
 local EGroup = DM.ExecutorGroup
-local Color = _G.LivePage.Color
+local Color = _G.LivePage.AppearanceColor
 
 --#endregion
 
@@ -85,7 +85,7 @@ function LLog(msg, level) -- Lazy Log = LLog
 end
 
 -- gma.cmd()
-function ExecCmd(cmd)
+function ExecCmd(cmd) --TODO: add fadeArg
     if lp.Settings.GhostMode then
         LLog("Ghosted Cmd: " .. tostring(cmd), "G")
     else
@@ -184,7 +184,7 @@ function SystemCheck()
     return true
 end
 
-function StrSplit(inputstr, sep)
+local function StrSplit(inputstr, sep)
     if sep == nil then
         sep = "%s"
     end
@@ -194,6 +194,15 @@ function StrSplit(inputstr, sep)
         table.insert(t, str)
     end
     return t -- Returned Tabell mit split _,str (ipairs)
+end
+
+function GetListIndex(tab, val)
+    for index, value in ipairs(tab) do
+        if value == val then
+            return index
+        end
+    end
+    return nil
 end
 
 function PluginDo(Param)
@@ -218,7 +227,7 @@ function PluginDo(Param)
         ["SUPMSGBOX"] = SupMSGBoxToggle,
         ["AUTOSTART"] = AutoStartToggle,
         ["HELP"] = Help,
-        ["HELPLIST"] = HelpList,
+        --["HELPLIST"] = HelpList,
     }
     for _, Iop in ipairs(operations) do
         local op = Iop:gsub("%s+", ""):upper()
@@ -307,6 +316,85 @@ end
 
 --#endregion
 
+--#region ColorPicking
+ColorGroupGroup = {}
+ColorGroupNames = {["Name"] = "FaderPage"}
+ColorExecColors = {
+    normal = {
+        blue = {b=100},
+        yellow = {r=100,g=100} -- Beispiel 
+    }
+}
+ColorExecOrder = {"r","g","b","a","w","uv"}
+
+
+function ColorGroupSelect(Name)
+    if not ColorGroupNames[Name] then
+        LLog("Group Named ".. Name .." not Found", "E")
+    end
+    ColorGroupGroup[#ColorGroupGroup+1] = Name
+end
+
+function ColorGroupDeselect(ungroup) -- if ungroup == true Deselected all execept lastSelected
+    local LastSelected
+    if ungroup then LastSelected = ColorGroupGroup[#ColorGroupGroup] end
+    ColorGroupGroup = {}
+    if ungroup then ColorGroupGroup[1] = LastSelected end
+end
+
+function SetColorFader(Exec,Value)
+    if not GetHandle() then 
+        LLog("Fader ".. Exec .." not Found (returned)","E")
+        return
+    end
+    ExecCmd(string.format("Executor %s At %s", Exec, Value))
+end
+
+function ApplyColorChange(Fader_Page,Color_Dict,ColorOrder) --Geht alle Attribute in ColorOrder durch
+    local faderPosition
+    local exec
+    local value
+    for n, s in ipairs(ColorOrder) do
+        value = Color_Dict[s]
+        faderPosition = GetListIndex(ColorExecOrder,n)
+        exec = string.format("%s.%s", Fader_Page, faderPosition)
+        if faderPosition == nil then
+            SetColorFader(exec,0)
+        elseif GetHandle(exec) then
+            SetColorFader(exec,value)
+        else
+            LLog("ColorFaderHandle ".. exec .." not Found","E")
+        end
+    end
+end
+
+function ApplyGroupColorChanges(Color_Dict)
+    local faderPage
+
+    for g in ipairs(ColorGroupGroup) do
+        faderPage = ColorGroupNames[g]
+        ApplyColorChange(faderPage,Color_Dict,ColorExecOrder) -- ChangeColorOrder Later or Value for ColorName to !normal
+    end
+end
+
+function PickColor(Color_Name)
+    local colorDict
+    if ColorExecColors.normal[Color_Name] then
+        colorDict = ColorExecColors.normal[Color_Name]
+    else
+        LLog("Color " .. Color_Name .. "not Found (returned)", "E")
+        return
+    end
+    ApplyGroupColorChanges(colorDict)
+end
+
+function PickCustomColor(Custom_Color) -- TODO: CustomColorValidierung
+    ApplyGroupColorChanges(Custom_Color)
+end
+
+
+
+--#endregion
 if _G.LivePage.Settings.AutoStart then InitPlugin()
 else LLog("LivePage AutoStart deaktiviert. MainPlugin -> InitPlugin", "M") end
 return
