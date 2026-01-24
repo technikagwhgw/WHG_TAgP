@@ -2,9 +2,10 @@
 -- Konfigurationsdatei für Makros um nicht die Interface Datei ändern zu müssen während der Entwicklung
 
 -- Globals --
-local Color = _G.LivePage.Color
+-- local Color = nil -- lost in Refactor
 
 -- Beispielcongiguration --
+--[[
 MacroConfig = {
     ["Spot"] = {
         color = Color.cyan,
@@ -68,3 +69,4 @@ MacroConfig = {
         }
     }
 }
+]]--

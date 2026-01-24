@@ -2,12 +2,14 @@
 -- Verwaltet die Macros für die LivePage
 
 -- Vars --
+--Deprecaded Config Notice
 local debug = _G.LivePage.Debug.Enabled
 local MS = _G.LivePage.MacroSettings
 local Color = _G.LivePage.Color
 -- Functions
 local ExecCmd = _G.LivePage.ExecCmd
 local LLog = _G.LivePage.LLog
+
 
 -- Macro Config --
 -- Paste MacroConfig here ...
@@ -70,7 +72,7 @@ function ConvertMacroAddr(Macro_Addr)
     local macroNumber = (base - 1) + (yValue * MS.macroPageSize + xValue)
     return macroNumber  -- id
 end
-
+--[[ Deprecaded Config Notice
 function UpdateMacroLabels(pageName)
     local pageData = MacroConfig[pageName]
     if not pageData then LLog("Page '"..pageName.."' nicht gefunden", 3) return end
@@ -106,7 +108,7 @@ function SyncPageUI(pageName)
         ExecCmd(string.format("Appearance Macro %d /color='%s'", macroID, finalColor))
     end
 end
-
+]]--
 function IsContentActive(contentType, id)
     if contentType == "Preset" then
         local handle = gma.show.getobj.handle("Preset " .. id)
@@ -119,7 +121,7 @@ function IsContentActive(contentType, id)
     end
     return false
 end
-
+--[[ Deprecaded Config Notice
 function ChangePage(name)
     if not MacroConfig[name] then 
         LLog("Seitenwechsel fehlgeschlagen: " .. tostring(name) .. " nicht in Config!", 4)
@@ -167,6 +169,7 @@ function ApplyMacroConfig(pageName, slotIndex)
         end
     end
 end
+]]--
 
 -- Utility Functions --
 
@@ -182,7 +185,7 @@ function ToggleHelpMode()
         LLog("Hilfe-Modus beendet.", 2)
     end
 end
-
+--[[ Deprecaded Config Notice
 function CheckHelp(id)
     if isHelpModeActive then
         -- HILFE-MODUS:
@@ -204,7 +207,7 @@ function ShowHelp(id)
         gma.gui.msgbox(getExceptionMsg(), "Keine Hilfe für ID " .. id .. " hinterlegt.")
     end
 end
-
+]]--
 
 -- Smart Button --
 
@@ -325,3 +328,43 @@ function CycleEffect(id)
     ExecCmd('Label Macro ' .. macroID .. ' "' .. action.name .. '"')
     ExecCmd('Appearance Macro ' .. macroID .. ' /color="' .. action.color .. '"')
 end
+
+-- Experimental Feature Area B --
+Lp = {}
+Lp.active_groups = {}
+CurrentCaller = ""
+local APP_ID_IDLE = 10     -- Grey/Dark
+local APP_ID_ACTIVE = 11   -- Green/Highlighted
+
+function LPProcess(Macro)
+    CurrentCaller = Macro
+end
+
+function LPSelect(Group_Id)
+    if Lp.active_groups[Group_Id] then
+        gma.cmd("Remove " .. Group_Id)
+        Lp.active_groups[Group_Id] = nil
+        UCMA(false)
+    else
+        gma.cmd("Add " .. Group_Id)
+        Lp.active_groups[Group_Id] = true
+        UCMA(true)
+    end
+end
+
+function LPApply(Pool, Name)
+    gma.cmd("At Preset '" .. Pool .. "'.\"" .. Name .. "\"")
+end
+
+function UpdateAppearence(Macro_Id,Is_Selected)
+    local target_app = Is_Selected and APP_ID_ACTIVE or APP_ID_IDLE
+
+    -- We use the CLI bridge for cross-console synchronization
+    gma.cmd("Assign Appearance " .. target_app .. " At Macro 1." .. Macro_Id)
+end
+
+function UpdateCurrentMacroAppearence(Is_Selected)
+    UpdateAppearence(CurrentCaller,Is_Selected)
+end
+
+UCMA = UpdateCurrentMacroAppearence
