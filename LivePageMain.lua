@@ -3,13 +3,15 @@
 --#region LivePage Setup
 
 local LivePage = {
-    Version = "0.9.0",
+    Version = "0.9.1",
+    Name = "LivePageMain",
     IsRunning = false,
     Registry = {},
     Config = {
-        FadeTimeFader = "100.106",
+        FadeTimeFader = "100.106", -- Executor
         DefaultFade = 3,
         UpdateRate = 0.2, -- Delay between Loop Cycles
+        StandByRate = 1,
         MaxRegistryEntrys = 100,
     },
     Settings = {
@@ -52,6 +54,7 @@ function LLog(msg, level) -- Lazy Log = LLog
         local specialPrefixes = {
             M = "[MAIN]",
             G = "[GHOST]",
+            W = "[WARN]"
         }
         finalMsg = string.format("%s %s", specialPrefixes[level] or "[LOG]", msg)
         level = 3 -- Default Level for string prefixes
@@ -74,6 +77,20 @@ function ExecCmd(cmd) --TODO: add fadeArg
     end
 end
 
+function SetAppearance(macroID, appearanceName)
+    lp.Registry[macroID] = lp.Registry[macroID] or {}
+    if lp.Registry[macroID].currentAppearance ~= appearanceName then
+        local mH = lp.Registry[macroID].macroHandle or GetHandle("Macro 1." .. macroID)
+        if mH then SetHandleProperty(mH,"Appearance",appearanceName)
+        else
+            local cmd = string.format("Assign Appearance '%s' At Macro 1.%s", appearanceName, macroID)
+            ExecCmd(cmd)
+            LLog(string.format("UI Update: Used Fallback to Update Macro %s -> %s", macroID, appearanceName), 1) -- Debug
+        end
+        lp.Registry[macroID].currentAppearance = appearanceName
+    end
+end
+
 -- gma.gui.msgbox()
 function MSGBox(Title, Text)
     if not lp.Settings.SuppressMSGBox then gma.gui.msgbox(Title, Text)
@@ -89,17 +106,33 @@ end
 function GetHandle(Object) return gma.show.getobj.handle(Object) end
 function GetHandleProperty(Handle,Property) return gma.show.property.get(Handle,Property) end
 function GetProperty(Object,Property) return GetHandleProperty(GetHandle(Object),Property) end
+function GetNumProperty(handle, property) return tonumber(GetHandleProperty(handle, property)) or 0 end
+
+function SetHandleProperty(Handle,Property,Value) gma.show.property.set(Handle,Property,Value) end
+
+-- Simple
+GetVar = gma.show.getvar
+GetTime = gma.gettime
+Sleep = gma.sleep
+
 
 --#endregion
 
 --#region EngineCore
 
 local function EngineCore()
+    LLog("Entering Main Loop ...","M")
+    local activeRate = Conf.UpdateRate
+    local standByRate = Conf.StandByRate
+
     while lp.IsRunning do
-        CheckExecutorFading()
-        CheckCmdEvent()
-        -- Delay
-        gma.sleep(lp.Config.UpdateRate)
+        local hasWork = next(lp.Registry) ~= nil
+        if hasWork then
+            CheckExecutorFading()
+            Sleep(activeRate)
+        else
+            Sleep(standByRate)
+        end
     end
 end
 
@@ -107,25 +140,12 @@ end
 function CheckExecutorFading()
     for macroID, data in pairs(lp.Registry) do
         if GetHandleProperty(data.handle, "isFading") == "No" then
-            ExecCmd(string.format("Assign Appearance '%s' At Macro 1.%s", Color.Idle, macroID))
+            SetAppearance(macroID, Color.Idle)
             lp.Registry[macroID] = nil
         end
     end
 end
 
-function CheckCmdEvent()
-    local last_cmd_index = 0
-    local events = gma.user.getcmdevents(last_cmd_index)
-    if events then
-        for i, event in ipairs(events) do
-            last_cmd_index = event.index
-            if event.name:upper():find("^LP") then
-                local cleanCmd = event.name:upper():gsub("LP%s*", "")
-                HandleCommandLine(cleanCmd)
-            end
-        end
-    end
-end
 
 --#endregion
 
@@ -141,10 +161,10 @@ function SystemCheck()
         return false
     end
 
-    if lp.IsRunning and gma.gettime() > 0 then
+    if lp.IsRunning and GetTime() > 0 then
         LLog("Duplicate engine detected. Restarting heartbeat...", "E")
         lp.IsRunning = false -- Force stop previous loop
-        gma.sleep(0.2)
+        Sleep(0.2)
     end
 
     local faderHandle = GetHandle("Executor " .. (Conf.FadeTimeFader or ""))
@@ -153,7 +173,7 @@ function SystemCheck()
         warnings = warnings + 1
     end
 
-    local isBlind = gma.show.getvar("BLIND")
+    local isBlind = GetVar("BLIND")
     if isBlind == "On" then
         LLog("Console is in BLIND mode. Visual feedback may not reflect live output.", "W")
         warnings = warnings + 1
@@ -179,7 +199,7 @@ end
 
 --#endregion
 
---#region CommandLine
+--#region UserPluginInterface
 
 local function StrSplit(inputstr, sep)
     if sep == nil then
@@ -193,21 +213,57 @@ local function StrSplit(inputstr, sep)
     return t -- Returned Tabell mit split _,str (ipairs)
 end
 
-function HandleCommandLine(input)
+function UserCommandInterface(input)
+    if not input or input == "" then return end
     local args = StrSplit(input, " ")
-    local action = args[1]
+    local action = args[1]:upper()
+
+    local function GetValidNum(val, min, max, default)
+        local n = tonumber(val)
+        if not n then return default end
+        return math.max(min, math.min(max, n))
+    end
 
     local ActionFunctions = {
-        ["START"] = Main,
-        ["GHOST"] = function() lpS.GhostMode = not lpS.GhostMode end,
-        ["SETFADE"] = function() 
-            lp.Config.DefaultFade = tonumber(args[2]) or lp.Config.DefaultFade 
+        ["START"]    = Main,
+        ["STOP"]     = Cleanup,
+        ["GHOST"]    = function() lpS.GhostMode = not lpS.GhostMode; LLog("GhostMode: "..tostring(lpS.GhostMode), "M") end,
+        ["AUTO"]     = function() lpS.AutoStart = not lpS.AutoStart; LLog("AutoStart: "..tostring(lpS.AutoStart), "M") end,
+        ["CLEAR"]    = function() lp.Registry = {}; LLog("Registry Purged", "M") end,
+        ["LOG"]      = function()
+            lpS.LogDisplayLevel = GetValidNum(args[2], 0, 5, 2)
+            LLog("Log Level set to: "..lpS.LogDisplayLevel, "M")
         end,
-        -- etc.
+        ["FADE"]     = function()
+            Conf.DefaultFade = GetValidNum(args[2], 0, 60, Conf.DefaultFade)
+            LLog("Default Fade set to: "..Conf.DefaultFade.."s", "M")
+        end,
+        ["RATE"]     = function()
+            Conf.UpdateRate = GetValidNum(args[2], 0.05, 2, Conf.UpdateRate)
+            LLog("Update Rate set to: "..Conf.UpdateRate.."s", "M")
+        end,
+        ["SRATE"] = function()
+            Conf.StandByRate = not Conf.StandByRate
+            LLog("StandBy Mode set to: " .. tostring(Conf.StandByRate), "M")
+        end,
+        ["PROVISION"] = function()
+            local start = tonumber(args[2]) or 1
+            local amount = tonumber(args[3]) or 10
+            ProvisionMacros(start, amount)
+        end
     }
     if ActionFunctions[action] then
-        ActionFunctions[action]()
-        LLog("Executed CLI Action: " .. action, "M")
+        local status, err = pcall(ActionFunctions[action])
+        if not status then LLog("Interface Error: " .. tostring(err), 4) end
+    else
+        MSGBox("LivePage", "Unknown Command: " .. action .. "\nTry: Start, Stop, Ghost, Auto, Clear, Log [val], Fade [val]")
+    end
+end
+
+function OpenInterface()
+    local userRequest = TextInput("LivePage Command Interface", "Start")
+    if userRequest then
+        UserCommandInterface(userRequest)
     end
 end
 
@@ -217,17 +273,20 @@ end
 
 function Subscribe(macroID, execID, actionType)
     local h = GetHandle("Executor " .. execID)
-    if not h then 
+    local mH = GetHandle("Macro 1." .. macroID)
+    if not h then
         LLog("Subscription Failed: Executor " .. execID .. " not found.", 4)
-        return nil 
+        return nil
     end
-    ExecCmd(string.format("Assign Appearance '%s' At Macro 1.%s", Color.Active, macroID))
+    SetAppearance(macroID,Color.Active)
     lp.Registry[macroID] = {
-        handle = h,
+        handle = h,         --Cached Executor Handle
+        macroHandle = mH,   --Cached Macro Handle
         exec = execID,
         type = actionType,
-        startTime = gma.gettime(),
-        isFading = true
+        startTime = GetTime(),
+        isFading = true,
+        currentAppearance = Color.Active,
     }
     return h
 end
@@ -237,7 +296,7 @@ function UniversalAction(macroID, execID, attribute, value)
     if not handle then return end
 
     local fTime = GetFadeTime()
-    ExecCmd(string.format("Executor %s At %s Fade %s", execID, value, fTime))
+    ExecCmd(string.format("Executor %s At %s Fade %s", execID, value, fTime)) --Handles Absolute and Relative Changes
 
     local name = GetHandleProperty(handle, "name") or "Exec"
     ExecCmd(string.format("Label Macro 1.%s '%s:%s'", macroID, name, value))
@@ -247,9 +306,47 @@ end
 function GetFadeTime()
     local handle = GetHandle("Executor " .. Conf.FadeTimeFader)
     if not handle then return Conf.DefaultFade end
-    -- Wandelt 0-100% des Faders in Sekunden um
+
     local faderValue = GetHandleProperty(handle, "fader") or "0"
-    return tonumber(faderValue:match("%d+")) / 10 or Conf.FadeTimeDefault
+    local parsedValue = tonumber(faderValue:match("%d+"))
+
+    if not parsedValue then return Conf.DefaultFade end
+
+    local result = parsedValue / 10
+    return math.max(0.1, result)
+end
+
+--#endregion
+
+--#region Utility
+
+function EnsurePoolObject(type, id, label)
+    local path = type .. " " .. id
+    local h = GetHandle(path)
+
+    if not h then
+        LLog("Auto-Generating " .. path, "M")
+        ExecCmd("Store " .. path)
+        if label then
+            ExecCmd("Label " .. path .. " '" .. label .. "'")
+        end
+        h = GetHandle(path)
+    end
+    return h
+end
+
+function ProvisionMacros(startID, count)
+    LLog("Provisioning " .. count .. " Macros starting at " .. startID, "M")
+
+    for i = 0, count - 1 do
+        local currentID = startID + i
+        local label = "LP_Action_" .. currentID
+        local mH = EnsurePoolObject("Macro 1.", currentID, label)
+        local cmd = string.format("LUA \"UniversalAction(%d, %d, 'Dimmer', 100)\"", currentID, 100 + currentID)
+        SetHandleProperty(mH, 1, cmd)
+    end
+
+    MSGBox("Provisioning Complete", count .. " Macros prepared for LivePage.")
 end
 
 --#endregion
@@ -257,8 +354,12 @@ end
 --#region Entry Points
 
 function Main()
-    lp.IsRunning = true
+    if lp.IsRunning then
+        lp.IsRunning = false
+        Sleep(0.3)
+    end
     if not SystemCheck() then return end
+    lp.IsRunning = true
     LLog("LivePage " .. lp.Version .. ": Coroutine Engine Started.", "M")
     EngineCore()
 end
@@ -267,8 +368,9 @@ function Cleanup()
     lp.IsRunning = false
     -- Reset all tracked buttons to Idle before closing
     for mID, _ in pairs(lp.Registry) do
-        gma.cmd(string.format("Assign Appearance '%s' At Macro 1.%s", Color.Idle, mID))
+        SetAppearance(mID,Color.Idle)
     end
+    lp.Registry = {}
     LLog("LivePage Engine safely terminated.", "M")
 end
 
