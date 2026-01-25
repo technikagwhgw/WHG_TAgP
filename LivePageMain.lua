@@ -3,7 +3,7 @@
 --#region LivePage Setup
 
 local LivePage = {
-    Version = "0.9.1",
+    Version = "0.9.2",
     Name = "LivePageMain",
     IsRunning = false,
     Registry = {},
@@ -27,18 +27,25 @@ local LivePage = {
             Prod = false,
         },
     },
-    ColorPresets = {
-        Active = "Green",
-        Idle = "Grey",
-        Warning = "Red"
+    ColorValues = {
+        Active  = {r=0,   g=255, b=0},   -- Green
+        Idle    = {r=255, g=255, b=255}, -- Grey
+        Warning = {r=255, g=0,   b=0}    -- Red
     }
 }
 
--- Synonyme --
+-- Definitions --
 local lp = LivePage
 local lpS = LivePage.Settings
-local Color = LivePage.ColorPresets
+local ColorValues = LivePage.ColorValues
 local Conf = LivePage.Config
+
+local GroupDefinitions = {
+    ["G_DIM"]   = { attr = "Dimmer",   label = "Dim" },
+    ["G_COLOR"] = { attr = "Color",    label = "Col" },
+    ["G_GOBO"]  = { attr = "Gobo1",    label = "Gob" },
+    ["G_FOCUS"] = { attr = "Focus",    label = "Foc" }
+}
 --#endregion
 
 --#region WrapperFunctions
@@ -77,17 +84,19 @@ function ExecCmd(cmd) --TODO: add fadeArg
     end
 end
 
-function SetAppearance(macroID, appearanceName)
+function SetAppearance(macroID, colorType)
     lp.Registry[macroID] = lp.Registry[macroID] or {}
-    if lp.Registry[macroID].currentAppearance ~= appearanceName then
-        local mH = lp.Registry[macroID].macroHandle or GetHandle("Macro 1." .. macroID)
-        if mH then SetHandleProperty(mH,"Appearance",appearanceName)
-        else
-            local cmd = string.format("Assign Appearance '%s' At Macro 1.%s", appearanceName, macroID)
+
+    if lp.Registry[macroID].currentAppearance ~= colorType then
+        local c = ColorValues[colorType]
+        if c then
+            local hexValue = string.format("%02X%02X%02X", c.r, c.g, c.b)
+            local cmd = string.format("Appearance Macro 1.%s /color=%s", macroID, hexValue)
             ExecCmd(cmd)
-            LLog(string.format("UI Update: Used Fallback to Update Macro %s -> %s", macroID, appearanceName), 1) -- Debug
+            lp.Registry[macroID].currentAppearance = colorType
+        else
+            LLog("SetAppearance: Invalid colorType '" .. tostring(colorType) .. "'", 3)
         end
-        lp.Registry[macroID].currentAppearance = appearanceName
     end
 end
 
@@ -103,8 +112,15 @@ function TextInput(Title, Default)
 end
 
 -- Handle/Property
+function VerifyHandle(Handle) return gma.show.getobj.verify(Handle) end
 function GetHandle(Object) return gma.show.getobj.handle(Object) end
-function GetHandleProperty(Handle,Property) return gma.show.property.get(Handle,Property) end
+function GetHandleProperty(Handle,Property) 
+    if not Handle then
+        LLog("GetHandleProperty: Handle not found (Nil?). Unable to find Property. ", 4)
+    else
+        return gma.show.property.get(Handle,Property)
+    end
+end
 function GetProperty(Object,Property) return GetHandleProperty(GetHandle(Object),Property) end
 function GetNumProperty(handle, property) return tonumber(GetHandleProperty(handle, property)) or 0 end
 
@@ -127,12 +143,12 @@ local function EngineCore()
 
     while lp.IsRunning do
         local hasWork = next(lp.Registry) ~= nil
-        if hasWork then
+        --if hasWork then
             CheckExecutorFading()
             Sleep(activeRate)
-        else
+        --else
             Sleep(standByRate)
-        end
+        --end
     end
 end
 
@@ -140,8 +156,10 @@ end
 function CheckExecutorFading()
     for macroID, data in pairs(lp.Registry) do
         if GetHandleProperty(data.handle, "isFading") == "No" then
-            SetAppearance(macroID, Color.Idle)
-            lp.Registry[macroID] = nil
+            SetAppearance(macroID, "Idle")
+            lp.Registry[macroID].isFading = false
+            --lp.Registry[macroID] = nil
+            LLog("Fade Complete: Macro " .. macroID .. " reset to Idle.", 1)
         end
     end
 end
@@ -269,7 +287,7 @@ end
 
 --#endregion
 
---#region Subscribtion
+--#region Actions
 
 function Subscribe(macroID, execID, actionType)
     local h = GetHandle("Executor " .. execID)
@@ -278,7 +296,7 @@ function Subscribe(macroID, execID, actionType)
         LLog("Subscription Failed: Executor " .. execID .. " not found.", 4)
         return nil
     end
-    SetAppearance(macroID,Color.Active)
+    SetAppearance(macroID,"Active")
     lp.Registry[macroID] = {
         handle = h,         --Cached Executor Handle
         macroHandle = mH,   --Cached Macro Handle
@@ -286,7 +304,7 @@ function Subscribe(macroID, execID, actionType)
         type = actionType,
         startTime = GetTime(),
         isFading = true,
-        currentAppearance = Color.Active,
+        currentAppearance = "Active",
     }
     return h
 end
@@ -296,12 +314,71 @@ function UniversalAction(macroID, execID, attribute, value)
     if not handle then return end
 
     local fTime = GetFadeTime()
-    ExecCmd(string.format("Executor %s At %s Fade %s", execID, value, fTime)) --Handles Absolute and Relative Changes
+    ExecCmd(string.format("Executor %s At %s Fade %s", execID, value, fTime))
+    local a = 1
+    gma.timer(function()
+        if a > 1 then
+            SetAppearance(macroID, "Idle")
+            lp.Registry[macroID] = nil
+            LLog("Timer Done",1)
+        else
+            a = a + 1
+        end
+    end, 3, 2)
 
     local name = GetHandleProperty(handle, "name") or "Exec"
-    ExecCmd(string.format("Label Macro 1.%s '%s:%s'", macroID, name, value))
+    ExecCmd(string.format("Label Macro %s '%s:%s'", macroID, name, value))
 end
+
+local lastClickTime = {}
+local double_click_threshold = 0.3
+
+function SmartPress(id, exec, attr, val)
+    local now = GetTime()
+    local lastClick = lastClickTime[id] or 0
+    
+    local mH = GetHandle("Macro 1." .. id)
+    if not mH or not gma.show.getobj.verify(mH) then
+        LLog("SmartPress Error: Macro " .. id .. " handle not found!", 4)
+        return
+    end
+
+    if (now - lastClick) <= double_click_threshold then
+        -- DOUBLE CLICK DETECTED
+        lastClickTime[id] = 0
+        DoublePressAction(id, exec, attr, val)
+    else
+        -- POTENTIAL SINGLE CLICK
+        lastClickTime[id] = now
+        -- Wait to see if another click comes
+        gma.timer(function()
+            if lastClickTime[id] == now then
+                -- No second click arrived in time
+                SinglePressAction(id, exec, attr, val)
+            end
+        end, double_click_threshold, 1)
+    end
+end
+
+function SinglePressAction(id, exec, attr, val)
+    LLog("SmartPress: Single Click on Macro " .. id, 1)
+    UniversalAction(id, exec, attr, val)
+end
+
+function DoublePressAction(id, exec, attr, val) --Future Use
+    --[[
+    LLog("SmartPress: Double Click (Flash/Toggle) on Macro " .. id, "M")
+    -- Example: Double click snaps to 100% instantly (0s fade)
+    local h = Subscribe(id, exec, attr)
+    if h then
+        ExecCmd(string.format("Executor %s At 100 Fade 0", exec))
+    end
+    ]]--
+end
+
 --#endregion
+
+--#region Utility
 
 function GetFadeTime()
     local handle = GetHandle("Executor " .. Conf.FadeTimeFader)
@@ -315,10 +392,6 @@ function GetFadeTime()
     local result = parsedValue / 10
     return math.max(0.1, result)
 end
-
---#endregion
-
---#region Utility
 
 function EnsurePoolObject(type, id, label)
     local path = type .. " " .. id
@@ -368,7 +441,7 @@ function Cleanup()
     lp.IsRunning = false
     -- Reset all tracked buttons to Idle before closing
     for mID, _ in pairs(lp.Registry) do
-        SetAppearance(mID,Color.Idle)
+        SetAppearance(mID,"Idle")
     end
     lp.Registry = {}
     LLog("LivePage Engine safely terminated.", "M")
